@@ -1,0 +1,257 @@
+# ==============================================================================
+# EDU3 University - 综合 .gitignore 配置
+# 支持 Node.js + Hardhat + React + TypeScript + Vite 技术栈
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Node.js 生态系统
+# ------------------------------------------------------------------------------
+# 依赖目录
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 包管理器锁文件 (可选择性包含)
+# pnpm-lock.yaml
+# yarn.lock
+# package-lock.json
+
+# ------------------------------------------------------------------------------
+# Hardhat / 智能合约开发
+# ------------------------------------------------------------------------------
+# 编译产物
+artifacts/
+cache/
+typechain/
+typechain-types/
+
+# 部署配置
+deployments/
+deployed-contracts.json
+.openzeppelin/
+
+# 测试覆盖率
+coverage/
+coverage.json
+.nyc_output/
+
+# 安全审计报告
+audit-report.*
+slither-results.*
+
+# ------------------------------------------------------------------------------
+# 前端构建 (React + Vite)
+# ------------------------------------------------------------------------------
+# 构建输出
+dist/
+dist-ssr/
+build/
+
+# Vite 缓存
+.vite/
+.vite-inspect/
+
+# 静态资源
+*.tgz
+*.tar.gz
+
+# ------------------------------------------------------------------------------
+# TypeScript
+# ------------------------------------------------------------------------------
+*.tsbuildinfo
+.tsbuildinfo
+*.js.map
+*.d.ts.map
+
+# ------------------------------------------------------------------------------
+# 环境配置与敏感信息
+# ------------------------------------------------------------------------------
+# 环境变量
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# 配置文件
+config.local.*
+secrets.json
+private-keys.txt
+mnemonic.txt
+*.key
+*.pem
+
+# ------------------------------------------------------------------------------
+# 开发工具 & IDE
+# ------------------------------------------------------------------------------
+# VS Code
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/snippets/
+
+# JetBrains IDE
+.idea/
+*.swp
+*.swo
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+*~
+*.swp
+*.swo
+.vim/
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ------------------------------------------------------------------------------
+# 操作系统文件
+# ------------------------------------------------------------------------------
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ------------------------------------------------------------------------------
+# 日志文件
+# ------------------------------------------------------------------------------
+# 通用日志
+*.log
+logs/
+log/
+
+# 特定工具日志
+hardhat.log
+ganache.log
+truffle.log
+remix.log
+
+# 调试文件
+debug.log
+error.log
+.debug/
+
+# ------------------------------------------------------------------------------
+# 临时文件与缓存
+# ------------------------------------------------------------------------------
+# 临时目录
+tmp/
+temp/
+.tmp/
+.cache/
+
+# 备份文件
+*.bak
+*.backup
+*.orig
+*.rej
+
+# 压缩文件
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# ------------------------------------------------------------------------------
+# 测试相关
+# ------------------------------------------------------------------------------
+# 测试覆盖率
+coverage/
+*.lcov
+.nyc_output/
+
+# 测试结果
+test-results/
+.jest/
+
+# ------------------------------------------------------------------------------
+# 文档生成
+# ------------------------------------------------------------------------------
+# 自动生成的文档
+docs/build/
+.docusaurus/
+
+# API 文档
+api-docs/
+typedoc/
+
+# ------------------------------------------------------------------------------
+# 部署与 CI/CD
+# ------------------------------------------------------------------------------
+# 部署密钥
+deploy_key*
+deployment-key*
+
+# CI 缓存
+.github/workflows/cache/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# ------------------------------------------------------------------------------
+# 其他开发工具
+# ------------------------------------------------------------------------------
+# Prettier
+.prettierrc.local
+
+# ESLint
+.eslintcache
+
+# Webpack
+.webpack/
+
+# Rollup
+.rollup/
+
+# Parcel
+.parcel-cache/
+
+# Rush
+common/temp/
+common/autoinstallers/**/node_modules/
+
+# Lerna
+.lerna/
