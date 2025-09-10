@@ -24,4 +24,23 @@ contract YDToken is ERC20, Ownable {
             _transfer(msg.sender, recipients[i], amount);
         }
     }
+
+    // 兑换率：1 ETH = 1000 YD
+    uint256 public constant EXCHANGE_RATE = 1000;
+    
+    // 用户发送ETH自动兑换YD代币
+    function exchangeETHForYD() external payable {
+        require(msg.value > 0, "Must send ETH to exchange");
+        
+        uint256 ydAmount = msg.value * EXCHANGE_RATE;
+        _mint(msg.sender, ydAmount);
+        
+        // ETH发送给合约owner
+        payable(owner()).transfer(msg.value);
+        
+        emit Exchange(msg.sender, msg.value, ydAmount);
+    }
+    
+    // 兑换事件
+    event Exchange(address indexed user, uint256 ethAmount, uint256 ydAmount);
 }

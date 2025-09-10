@@ -139,6 +139,11 @@ export const purchaseApi = {
   }) => {
     return apiService.post('/purchases', purchaseData);
   },
+
+  // 获取用户购买记录
+  getUserPurchases: async (address: string) => {
+    return apiService.get(`/purchases/user/${address}`);
+  },
 };
 
 // 测试API

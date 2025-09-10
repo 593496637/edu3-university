@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(npm install:*)",
-      "WebFetch(domain:docs.ethers.org)"
+      "WebFetch(domain:docs.ethers.org)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run build:*)",
+      "Bash(pnpm init:*)",
+      "Bash(pnpm add:*)",
+      "Bash(npx tsc:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker exec:*)",
+      "Bash(pnpm dev:*)"
     ],
     "deny": [],
     "ask": []
