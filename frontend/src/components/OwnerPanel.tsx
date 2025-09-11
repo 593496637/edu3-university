@@ -10,25 +10,44 @@ interface OwnerPanelProps {
 export default function OwnerPanel({ isOpen, onClose }: OwnerPanelProps) {
   const [userAddress, setUserAddress] = useState('');
   const [ydAmount, setYdAmount] = useState('');
-  const { account } = useWalletContext();
+  const { isConnected } = useWalletContext();
   const { tokenOperations, loading } = useContracts();
 
   const handleMintTokens = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isConnected) {
+      alert('请先连接钱包');
+      return;
+    }
     
     if (!userAddress || !ydAmount) {
       alert('请填写用户地址和代币数量');
       return;
     }
 
+    // 验证用户地址格式
+    if (!userAddress.startsWith('0x') || userAddress.length !== 42) {
+      alert('请输入有效的以太坊地址');
+      return;
+    }
+
+    // 验证代币数量
+    const amount = parseFloat(ydAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert('请输入有效的代币数量');
+      return;
+    }
+
     try {
-      const txHash = await tokenOperations.mintExchangeTokens(userAddress, parseFloat(ydAmount));
-      alert(`代币发放成功！\n\n交易哈希: ${txHash}\n用户地址: ${userAddress}\n代币数量: ${ydAmount} YD`);
+      const txHash = await tokenOperations.mintExchangeTokens(userAddress, amount);
+      alert(`代币发放成功！\n\n交易哈希: ${txHash}\n用户地址: ${userAddress}\n代币数量: ${amount} YD`);
       setUserAddress('');
       setYdAmount('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('发放代币失败:', error);
-      alert(`发放失败: ${error.message || '请检查权限和参数'}`);
+      const errorMessage = error instanceof Error ? error.message : '请检查权限和参数';
+      alert(`发放失败: ${errorMessage}`);
     }
   };
 
@@ -100,17 +119,27 @@ export default function OwnerPanel({ isOpen, onClose }: OwnerPanelProps) {
             </div>
           </div>
 
+          {/* 连接状态提示 */}
+          {!isConnected && (
+            <div className="p-4 rounded-xl border bg-red-500/10 border-red-500/20">
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-red-400 rounded-full mr-3"></div>
+                <p className="text-red-300 text-sm">请先连接钱包</p>
+              </div>
+            </div>
+          )}
+
           {/* 提交按钮 */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !isConnected}
             className={`w-full py-4 px-6 rounded-xl font-semibold transition-all duration-300 ${
-              loading
+              loading || !isConnected
                 ? 'bg-gray-600/50 text-gray-400 cursor-not-allowed'
                 : 'bg-gradient-to-r from-orange-600 to-red-600 text-white hover:from-orange-500 hover:to-red-500 shadow-lg hover:shadow-orange-500/25'
             }`}
           >
-            {loading ? '发放中...' : '发放 YD 代币'}
+            {loading ? '发放中...' : !isConnected ? '请先连接钱包' : '发放 YD 代币'}
           </button>
         </form>
       </div>

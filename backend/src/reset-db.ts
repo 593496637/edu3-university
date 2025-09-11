@@ -13,32 +13,26 @@ const dbConfig = {
   database: process.env.DB_NAME || 'web3_course_platform',
 };
 
-// 创建连接池
-export const pool = mysql.createPool({
-  ...dbConfig,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
-
-// 测试数据库连接
-export async function testConnection() {
+async function resetDatabase() {
+  let connection;
+  
   try {
-    const connection = await pool.getConnection();
+    // 创建连接
+    connection = await mysql.createConnection(dbConfig);
     console.log('✅ 数据库连接成功');
-    connection.release();
-    return true;
-  } catch (error) {
-    console.error('❌ 数据库连接失败:', error);
-    return false;
-  }
-}
 
-// 创建数据库表
-export async function createTables() {
-  try {
+    // 删除现有表
+    console.log('🗑️ 删除现有表...');
+    await connection.execute('DROP TABLE IF EXISTS purchases');
+    await connection.execute('DROP TABLE IF EXISTS courses');
+    await connection.execute('DROP TABLE IF EXISTS users');
+    console.log('✅ 现有表已删除');
+
+    // 重新创建表
+    console.log('📊 创建新的数据库表结构...');
+    
     // 用户表
-    await pool.execute(`
+    await connection.execute(`
       CREATE TABLE IF NOT EXISTS users (
         id BIGINT PRIMARY KEY AUTO_INCREMENT,
         wallet_address VARCHAR(42) UNIQUE NOT NULL,
@@ -51,7 +45,7 @@ export async function createTables() {
     `);
 
     // 课程表 - 混合存储：核心字段冗余存储 + 扩展字段
-    await pool.execute(`
+    await connection.execute(`
       CREATE TABLE IF NOT EXISTS courses (
         id BIGINT PRIMARY KEY AUTO_INCREMENT,
         course_id BIGINT NOT NULL UNIQUE,
@@ -73,11 +67,11 @@ export async function createTables() {
     `);
 
     // 购买记录表
-    await pool.execute(`
+    await connection.execute(`
       CREATE TABLE IF NOT EXISTS purchases (
         id BIGINT PRIMARY KEY AUTO_INCREMENT,
         user_address VARCHAR(42) NOT NULL,
-        course_id BIGINT NOT NULL,
+        course_id BIGINT NOT NULL UNIQUE,
         tx_hash VARCHAR(66) NOT NULL,
         price_paid DECIMAL(18,8),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -85,40 +79,18 @@ export async function createTables() {
       )
     `);
 
-    // 用户会话表 - 存储访问token
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS user_sessions (
-        id BIGINT PRIMARY KEY AUTO_INCREMENT,
-        user_address VARCHAR(42) NOT NULL,
-        session_token VARCHAR(128) UNIQUE NOT NULL,
-        expires_at TIMESTAMP NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX idx_user_address (user_address),
-        INDEX idx_token (session_token),
-        INDEX idx_expires (expires_at)
-      )
-    `);
+    console.log('✅ 新的数据库表创建成功');
+    console.log('🎉 数据库重置完成！');
 
-    // 课程访问令牌表 - 存储课程访问签名
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS course_access_tokens (
-        id BIGINT PRIMARY KEY AUTO_INCREMENT,
-        user_address VARCHAR(42) NOT NULL,
-        course_id BIGINT NOT NULL,
-        signature TEXT NOT NULL,
-        signed_message TEXT NOT NULL,
-        expires_at TIMESTAMP NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_user_course (user_address, course_id),
-        INDEX idx_expires (expires_at)
-      )
-    `);
-
-    console.log('✅ 数据库表创建成功');
-    return true;
   } catch (error) {
-    console.error('❌ 创建数据库表失败:', error);
-    return false;
+    console.error('❌ 数据库重置失败:', error);
+    process.exit(1);
+  } finally {
+    if (connection) {
+      await connection.end();
+    }
   }
 }
+
+// 运行重置
+resetDatabase();

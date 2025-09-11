@@ -5,6 +5,7 @@ import { testConnection, createTables } from './database';
 import coursesRouter from './routes/courses';
 import usersRouter from './routes/users';
 import purchasesRouter from './routes/purchases';
+// import authRouter from './routes/auth';
 
 // 加载环境变量
 dotenv.config();
@@ -19,10 +20,16 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// API路由
-app.use('/api/courses', coursesRouter);
+// API路由调试
+console.log('🔗 配置API路由...');
+console.log('📋 Courses router loaded:', !!coursesRouter);
+app.use('/api/courses', (req, res, next) => {
+  console.log(`📋 Courses路由收到请求: ${req.method} ${req.url}`);
+  next();
+}, coursesRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/purchases', purchasesRouter);
+// app.use('/api/auth', authRouter);
 
 // 基础路由
 app.get('/', (req, res) => {
@@ -59,8 +66,7 @@ async function startServer() {
     const dbConnected = await testConnection();
     
     if (dbConnected) {
-      // 创建数据库表
-      console.log('📊 正在创建数据库表...');
+      // 确保数据库表已创建
       await createTables();
     }
 

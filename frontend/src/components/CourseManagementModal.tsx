@@ -103,7 +103,7 @@ export default function CourseManagementModal({ isOpen, onClose, course }: Cours
             </div>
             
             <div className="space-y-2">
-              {chapters.map((chapter, index) => (
+              {chapters.map((chapter) => (
                 <div
                   key={chapter.id}
                   className={`p-3 rounded-lg border transition-all cursor-pointer ${

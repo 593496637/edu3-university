@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useWalletContext } from '../context/WalletContext';
 import { useContracts } from '../hooks/useContracts';
 import CreateCourseModal from '../components/CreateCourseModal';
-import TokenExchangeModal from '../components/TokenExchangeModal';
 import CourseManagementModal from '../components/CourseManagementModal';
 import { testApi } from '../services/api';
 
@@ -14,11 +13,13 @@ interface Course {
   instructor: string;
   isActive: boolean;
   createdAt: number;
+  // 数据库字段
+  category?: string;
+  coverImageUrl?: string;
 }
 
 export default function Courses() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isExchangeModalOpen, setIsExchangeModalOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [userBalance, setUserBalance] = useState('0');
   const [purchasedCourses, setPurchasedCourses] = useState<Set<number>>(new Set());
@@ -29,14 +30,33 @@ export default function Courses() {
   const { isConnected, account } = useWalletContext();
   const { tokenOperations, courseOperations, loading, isReady, CONTRACT_ADDRESSES } = useContracts();
 
-  // 加载课程数据（优先从后端API）
+  // 加载课程数据（直接使用API数据）
   const loadCourses = async () => {
     if (!isReady) return;
     
     try {
       setCoursesLoading(true);
-      const courses = await courseOperations.getCoursesFromAPI();
-      setCourses(courses);
+      // 直接调用API，不做过度封装
+      const response = await fetch('http://localhost:3001/api/courses');
+      const data = await response.json();
+      
+      if (data.success && data.data.courses) {
+        console.log('API返回完整数据:', data.data.courses);
+        // 直接使用API返回的完整数据
+        const coursesData = data.data.courses.map((apiCourse: any) => ({
+          id: apiCourse.courseId,
+          title: apiCourse.title || `课程 #${apiCourse.courseId}`,
+          description: apiCourse.description || `分类: ${apiCourse.category}`,
+          price: apiCourse.price ? apiCourse.price.toString() : "0",
+          instructor: apiCourse.instructorAddress || "0x0000",
+          isActive: true,
+          createdAt: new Date(apiCourse.createdAt).getTime() / 1000,
+          // 数据库扩展字段
+          category: apiCourse.category,
+          coverImageUrl: apiCourse.coverImageUrl
+        }));
+        setCourses(coursesData);
+      }
     } catch (error) {
       console.error('加载课程失败:', error);
     } finally {
@@ -50,10 +70,6 @@ export default function Courses() {
     loadCourses(); // 重新加载课程列表
   };
 
-  const handleExchangeSuccess = () => {
-    console.log('代币获取成功');
-    loadUserData(); // 重新加载用户数据
-  };
 
   // 加载用户数据
   const loadUserData = async () => {
@@ -116,9 +132,10 @@ export default function Courses() {
       setApprovedCourses(prev => new Set(prev).add(course.id));
       
       alert('授权成功！现在可以购买课程了');
-    } catch (error: any) {
+    } catch (error) {
       console.error('授权失败:', error);
-      alert(`授权失败: ${error.message || '未知错误'}`);
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      alert(`授权失败: ${errorMessage}`);
     }
   };
 
@@ -159,9 +176,10 @@ export default function Courses() {
       
       // 重新加载用户数据
       loadUserData();
-    } catch (error: any) {
+    } catch (error) {
       console.error('购买失败:', error);
-      alert(`购买失败: ${error.message || '未知错误'}`);
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      alert(`购买失败: ${errorMessage}`);
     }
   };
 
@@ -176,9 +194,10 @@ export default function Courses() {
       } else {
         alert('后端连接失败: ' + result.error);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('后端连接测试失败:', error);
-      alert('后端连接测试失败: ' + error.message);
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      alert('后端连接测试失败: ' + errorMessage);
     }
   };
 
@@ -214,15 +233,6 @@ export default function Courses() {
                   <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
                   <span className="text-yellow-400 font-medium">{parseFloat(userBalance).toFixed(2)} YD</span>
                 </div>
-                {parseFloat(userBalance) < 1 && (
-                  <button
-                    onClick={() => setIsExchangeModalOpen(true)}
-                    className="bg-gradient-to-r from-yellow-600 to-orange-600 text-white px-4 py-2 rounded-lg hover:from-yellow-500 hover:to-orange-500 transition-all duration-200 text-sm font-medium shadow-lg hover:shadow-yellow-500/25 flex items-center gap-2"
-                  >
-                    <span className="text-lg">💰</span>
-                    获取代币
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -265,7 +275,7 @@ export default function Courses() {
                     <div className="w-3 h-3 bg-blue-400 rounded-full mr-2 animate-pulse"></div>
                     <span className="text-blue-400 text-sm font-medium">课程 #{course.id}</span>
                     <span className="mx-2 text-gray-500">•</span>
-                    <span className="text-gray-500 text-xs">讲师: {course.instructor.slice(0, 6)}...</span>
+                    <span className="text-orange-400 text-xs font-medium bg-orange-500/10 px-2 py-1 rounded">{course.category}</span>
                   </div>
                   {account?.toLowerCase() === course.instructor.toLowerCase() && (
                     <button 
@@ -340,14 +350,9 @@ export default function Courses() {
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
           onSuccess={handleCreateSuccess}
+          onBalanceUpdate={loadUserData}
         />
 
-        {/* 代币兑换模态框 */}
-        <TokenExchangeModal
-          isOpen={isExchangeModalOpen}
-          onClose={() => setIsExchangeModalOpen(false)}
-          onSuccess={handleExchangeSuccess}
-        />
 
         {/* 课程管理模态框 */}
         <CourseManagementModal

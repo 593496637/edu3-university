@@ -10,7 +10,16 @@
       "Bash(npx tsc:*)",
       "Bash(docker-compose up:*)",
       "Bash(docker exec:*)",
-      "Bash(pnpm dev:*)"
+      "Bash(pnpm dev:*)",
+      "Bash(cat:*)",
+      "Bash(curl:*)",
+      "Bash(docker-compose:*)",
+      "Bash(taskkill:*)",
+      "Bash(pkill:*)",
+      "Bash(netstat:*)",
+      "Bash(cmd //c:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(pnpm run dev:*)"
     ],
     "deny": [],
     "ask": []

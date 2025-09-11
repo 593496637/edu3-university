@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { pool } from '../database';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
 
-const router = Router();
+const router: Router = Router();
 
 // 记录购买
 router.post('/', async (req, res) => {

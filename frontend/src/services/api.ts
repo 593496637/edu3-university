@@ -83,16 +83,23 @@ export const courseApi = {
     return apiService.get(`/courses?page=${page}&limit=${limit}`);
   },
 
-  // 创建课程
+  // 创建课程 - 混合存储版本
   createCourse: async (courseData: {
-    courseId: string;
-    title: string;
-    description: string;
-    price: string;
-    instructorAddress: string;
-    txHash: string;
+    courseId: number | string;
+    title?: string;
+    description?: string;
+    price?: number | string;
+    instructorAddress?: string;
+    category?: string;
+    coverImageUrl?: string;
+    txHash?: string;
   }) => {
     return apiService.post('/courses', courseData);
+  },
+
+  // 获取课程额外信息
+  getCourseExtras: async (courseId: string) => {
+    return apiService.get(`/courses/${courseId}/extras`);
   },
 
   // 获取课程详情（需要签名验证）
@@ -143,6 +150,33 @@ export const purchaseApi = {
   // 获取用户购买记录
   getUserPurchases: async (address: string) => {
     return apiService.get(`/purchases/user/${address}`);
+  },
+};
+
+// 认证API
+export const authApi = {
+  // 登录
+  login: async (walletAddress: string, signature: string, message: string, timestamp: number) => {
+    return apiService.post('/auth/login', {
+      walletAddress,
+      signature,
+      message,
+      timestamp,
+    });
+  },
+
+  // 验证会话
+  verifySession: async (sessionToken: string) => {
+    return apiService.post('/auth/verify-session', {
+      sessionToken,
+    });
+  },
+
+  // 登出
+  logout: async (sessionToken: string) => {
+    return apiService.post('/auth/logout', {
+      sessionToken,
+    });
   },
 };
 

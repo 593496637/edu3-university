@@ -2,6 +2,17 @@ import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useWalletContext } from '../context/WalletContext';
 import { courseApi, purchaseApi } from '../services/api';
+import type {
+  CourseData,
+  ApiCourseData,
+  ApiResponse,
+  ContractInterface,
+  AbiFragment,
+  StakeInfo,
+  CreateCourseResult,
+  CreateCourseApiRequest,
+  RecordPurchaseRequest
+} from '../types/contracts';
 
 // 导入 ABI
 import YDTokenABI from '../../abis/YDToken.json';
@@ -29,7 +40,7 @@ export function useContracts() {
     return await provider.getSigner();
   }, [getProvider]);
 
-  const getContract = useCallback(async (address: string, abi: any) => {
+  const getContract = useCallback(async (address: string, abi: AbiFragment) => {
     const signer = await getSigner();
     return new ethers.Contract(address, abi, signer);
   }, [getSigner]);
@@ -147,63 +158,20 @@ export function useContracts() {
       }
     },
 
-    // ETH 兑换 YD - 动态获取 owner 地址
-    exchangeETHForYD: async (ethAmountStr: string): Promise<{ ethTxHash: string; ydAmount: number; ownerAddress: string; mintTxHash?: string }> => {
-      try {
-        setLoading(true);
-        
-        const ethAmount = parseFloat(ethAmountStr);
-        const ydAmount = ethAmount * 1000; // 1 ETH = 1000 YD
-        
-        // 获取合约 owner 地址
-        const ownerAddress = await tokenOperations.getOwner();
-        
-        // 检查当前用户是否是 owner
-        if (account?.toLowerCase() === ownerAddress.toLowerCase()) {
-          // 如果是 owner，直接 mint 代币给自己
-          const contract = await getContract(CONTRACT_ADDRESSES.YDToken, YDTokenABI.abi);
-          const amountWei = ethers.parseEther(ydAmount.toString());
-          
-          const tx = await contract.mint(account, amountWei);
-          await tx.wait();
-          
-          return {
-            ethTxHash: tx.hash,
-            ydAmount: ydAmount,
-            ownerAddress: ownerAddress
-          };
-        } else {
-          // 如果不是 owner，先发送 ETH 到 owner 地址
-          const signer = await getSigner();
-          
-          const ethTx = await signer.sendTransaction({
-            to: ownerAddress,
-            value: ethers.parseEther(ethAmountStr),
-            data: ethers.hexlify(ethers.toUtf8Bytes(`YD_EXCHANGE:${account}:${ydAmount}`))
-          });
-          
-          await ethTx.wait();
-          
-          // ETH支付成功，提示用户等待owner处理
-          return {
-            ethTxHash: ethTx.hash,
-            ydAmount: ydAmount,
-            ownerAddress: ownerAddress
-          };
-        }
-      } catch (error) {
-        console.error('ETH 兑换失败:', error);
-        throw error;
-      } finally {
-        setLoading(false);
-      }
-    }
   };
 
   // CourseManager 相关操作
   const courseOperations = {
     // 创建课程
-    createCourse: async (title: string, description: string, price: string) => {
+    createCourse: async (
+      title: string, 
+      description: string, 
+      price: string, 
+      options?: {
+        category?: string;
+        coverImageUrl?: string;
+      }
+    ) => {
       try {
         setLoading(true);
         const contract = await getContract(CONTRACT_ADDRESSES.CourseManager, CourseManagerABI.abi);
@@ -214,9 +182,9 @@ export function useContracts() {
         const receipt = await tx.wait();
         
         // 从事件中获取课程ID
-        const courseCreatedEvent = receipt.logs.find((log: any) => {
+        const courseCreatedEvent = receipt.logs.find((log: ethers.Log) => {
           try {
-            const parsed = contract.interface.parseLog(log);
+            const parsed = (contract.interface as ContractInterface).parseLog(log);
             return parsed && parsed.name === 'CourseCreated';
           } catch {
             return false;
@@ -225,7 +193,7 @@ export function useContracts() {
         
         let courseId = null;
         if (courseCreatedEvent) {
-          const parsed = contract.interface.parseLog(courseCreatedEvent);
+          const parsed = (contract.interface as ContractInterface).parseLog(courseCreatedEvent);
           if (parsed) {
             courseId = parsed.args.courseId.toString();
           }
@@ -240,6 +208,8 @@ export function useContracts() {
               description,
               price,
               instructorAddress: account,
+              category: options?.category || 'Web3',
+              coverImageUrl: options?.coverImageUrl || '',
               txHash: tx.hash
             });
             console.log('课程已同步到后端数据库');
@@ -248,7 +218,7 @@ export function useContracts() {
           }
         }
         
-        return { courseId, txHash: tx.hash };
+        return { courseId, txHash: tx.hash } as CreateCourseResult;
       } catch (error) {
         console.error('创建课程失败:', error);
         throw error;
@@ -279,7 +249,7 @@ export function useContracts() {
               courseId: courseId.toString(),
               txHash: tx.hash,
               pricePaid: priceInEther
-            });
+            } as RecordPurchaseRequest);
             console.log('购买记录已同步到后端数据库');
           } catch (apiError) {
             console.warn('同步购买记录到后端失败，但区块链购买成功:', apiError);
@@ -327,7 +297,7 @@ export function useContracts() {
     },
 
     // 获取所有课程（从区块链）
-    getAllCourses: async () => {
+    getAllCourses: async (): Promise<CourseData[]> => {
       try {
         const contract = await getContract(CONTRACT_ADDRESSES.CourseManager, CourseManagerABI.abi);
         const totalCourses = await contract.getTotalCourses();
@@ -361,11 +331,11 @@ export function useContracts() {
     },
 
     // 从后端API获取课程列表（优先使用这个，因为包含数据库信息）
-    getCoursesFromAPI: async () => {
+    getCoursesFromAPI: async (): Promise<CourseData[]> => {
       try {
-        const response = await courseApi.getCourses(1, 50); // 获取前50个课程
-        if (response.success && response.data) {
-          return response.data.courses.map((course: any) => ({
+        const response = await courseApi.getCourses(1, 50) as ApiResponse; // 获取前50个课程
+        if (response.success && response.data && response.data.courses) {
+          return response.data.courses.map((course: ApiCourseData): CourseData => ({
             id: parseInt(course.course_id),
             instructor: course.instructor_address,
             title: course.title,
@@ -433,7 +403,7 @@ export function useContracts() {
           amount: ethers.formatEther(stakeInfo.amount),
           startTime: Number(stakeInfo.startTime),
           isActive: stakeInfo.isActive
-        };
+        } as StakeInfo;
       } catch (error) {
         console.error('获取质押信息失败:', error);
         throw error;
