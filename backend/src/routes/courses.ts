@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { pool } from '../database';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
-// import { sessionService } from '../services/sessionService';
+import { sessionService } from '../services/sessionService';
+import { optionalAuth, requireAuth } from '../middleware/auth';
 
 const router: Router = Router();
 
@@ -73,7 +74,7 @@ router.post('/', async (req, res) => {
 });
 
 // 获取课程列表（结合链上和数据库数据）
-router.get('/', async (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
   try {
     console.log('📋 收到获取课程列表请求');
     
@@ -89,14 +90,25 @@ router.get('/', async (req, res) => {
     
     // 获取数据库中的课程额外信息
     const query = `SELECT * FROM courses ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`;
-    const [courses] = await pool.execute<RowDataPacket[]>(query);
+    const [coursesList] = await pool.execute<RowDataPacket[]>(query);
+    
+    // 如果用户已登录，检查购买状态
+    let purchasedCourseIds: number[] = [];
+    if (req.user?.address) {
+      const [purchases] = await pool.execute<RowDataPacket[]>(
+        'SELECT DISTINCT course_id FROM purchases WHERE user_address = ?',
+        [req.user.address.toLowerCase()]
+      );
+      purchasedCourseIds = purchases.map(p => p.course_id);
+      console.log(`📋 用户 ${req.user.address} 已购买课程: ${purchasedCourseIds.join(', ')}`);
+    }
     
     const totalPages = Math.ceil(total / limit);
     
     res.json({
       success: true,
       data: {
-        courses: courses.map(course => ({
+        courses: coursesList.map(course => ({
           // 完整的课程数据（包含冗余存储和扩展字段）
           courseId: course.course_id,
           title: course.title,
@@ -107,13 +119,17 @@ router.get('/', async (req, res) => {
           coverImageUrl: course.cover_image_url,
           txHash: course.tx_hash,
           createdAt: course.created_at,
+          // 添加购买状态
+          hasPurchased: req.user?.address ? purchasedCourseIds.includes(course.course_id) : false,
         })),
         pagination: {
           page,
           limit,
           total,
           totalPages
-        }
+        },
+        // 添加用户登录状态
+        userAddress: req.user?.address || null
       }
     });
     
@@ -132,19 +148,19 @@ router.get('/:courseId/extras', async (req, res) => {
   try {
     const { courseId } = req.params;
     
-    const [courses] = await pool.execute<RowDataPacket[]>(
+    const [courseInfo] = await pool.execute<RowDataPacket[]>(
       'SELECT * FROM courses WHERE course_id = ?',
       [courseId]
     );
 
-    if (courses.length === 0) {
+    if (courseInfo.length === 0) {
       return res.status(404).json({
         success: false,
         error: '课程不存在'
       });
     }
 
-    const course = courses[0];
+    const course = courseInfo[0];
     res.json({
       success: true,
       data: {
@@ -165,7 +181,7 @@ router.get('/:courseId/extras', async (req, res) => {
   }
 });
 
-// 获取课程详情（需要签名验证）- 临时简化版本
+// 获取课程详情（需要签名验证）
 router.post('/:courseId/details', async (req, res) => {
   try {
     const { courseId } = req.params;
@@ -174,41 +190,71 @@ router.post('/:courseId/details', async (req, res) => {
     if (!userAddress || !signature || !timestamp) {
       return res.status(400).json({
         success: false,
-        error: '缺少必要参数'
+        error: '缺少必要参数: userAddress, signature, timestamp'
       });
     }
 
-    // 临时跳过签名验证，直接检查购买状态
-    console.log('🔐 临时版本：跳过签名验证，直接检查购买状态');
+    console.log(`🔐 开始验证课程 ${courseId} 访问权限，用户: ${userAddress}`);
 
-    // 检查用户是否已购买课程
+    // 1. 检查用户是否已购买课程或者是课程创建者
     const [purchases] = await pool.execute<RowDataPacket[]>(
       'SELECT * FROM purchases WHERE user_address = ? AND course_id = ?',
       [userAddress.toLowerCase(), courseId]
     );
 
-    if (purchases.length === 0) {
+    // 检查用户是否是课程创建者
+    const [instructorCourses] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM courses WHERE course_id = ? AND instructor_address = ?',
+      [courseId, userAddress.toLowerCase()]
+    );
+
+    const isPurchased = purchases.length > 0;
+    const isInstructor = instructorCourses.length > 0;
+
+    if (!isPurchased && !isInstructor) {
       return res.status(403).json({
         success: false,
         error: '您尚未购买此课程',
-        hasPurchased: false
+        hasPurchased: false,
+        isInstructor: false
       });
     }
 
+    console.log(`🎓 课程详情访问: 用户${userAddress}, 课程${courseId}, 身份: ${isInstructor ? '创建者' : '购买者'}`);
+
+    // 2. 验证签名
+    const isValidSignature = await sessionService.validateCourseAccess(
+      userAddress,
+      parseInt(courseId),
+      signature,
+      timestamp
+    );
+
+    if (!isValidSignature) {
+      return res.status(401).json({
+        success: false,
+        error: '签名验证失败，请重新生成访问签名',
+        hasPurchased: true,
+        needsNewSignature: true
+      });
+    }
+
+    console.log(`✅ 签名验证成功，用户 ${userAddress} 可以访问课程 ${courseId}`);
+
     // 获取课程详细信息
-    const [courses] = await pool.execute<RowDataPacket[]>(
+    const [courseDetails] = await pool.execute<RowDataPacket[]>(
       'SELECT * FROM courses WHERE course_id = ?',
       [courseId]
     );
 
-    if (courses.length === 0) {
+    if (courseDetails.length === 0) {
       return res.status(404).json({
         success: false,
         error: '课程不存在'
       });
     }
 
-    const course = courses[0];
+    const course = courseDetails[0];
 
     // 返回课程详情和学习内容
     res.json({
@@ -254,6 +300,63 @@ router.post('/:courseId/details', async (req, res) => {
     res.status(500).json({
       success: false,
       error: '获取课程详情失败'
+    });
+  }
+});
+
+// 生成课程访问签名消息
+router.post('/:courseId/generate-access-message', requireAuth, async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userAddress = req.user!.address;
+
+    // 检查用户是否已购买课程或者是课程创建者
+    const [purchases] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM purchases WHERE user_address = ? AND course_id = ?',
+      [userAddress.toLowerCase(), courseId]
+    );
+
+    // 检查用户是否是课程创建者
+    const [ownerCourses] = await pool.execute<RowDataPacket[]>(
+      'SELECT * FROM courses WHERE course_id = ? AND instructor_address = ?',
+      [courseId, userAddress.toLowerCase()]
+    );
+
+    const isPurchased = purchases.length > 0;
+    const isInstructor = ownerCourses.length > 0;
+
+    if (!isPurchased && !isInstructor) {
+      return res.status(403).json({
+        success: false,
+        error: '您尚未购买此课程',
+        hasPurchased: false,
+        isInstructor: false
+      });
+    }
+
+    console.log(`🔑 生成课程访问消息: 用户${userAddress}, 课程${courseId}, 身份: ${isInstructor ? '创建者' : '购买者'}`);
+
+    // 生成访问消息和时间戳
+    const timestamp = Date.now();
+    const expiry = timestamp + 2 * 60 * 60 * 1000; // 2小时有效期
+    const message = `Access course ${courseId} valid until ${expiry}`;
+
+    res.json({
+      success: true,
+      data: {
+        message,
+        timestamp,
+        courseId: parseInt(courseId),
+        userAddress,
+        expiresAt: new Date(expiry).toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('生成课程访问消息失败:', error);
+    res.status(500).json({
+      success: false,
+      error: '生成访问消息失败'
     });
   }
 });

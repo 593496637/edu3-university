@@ -41,7 +41,7 @@ export default function Layout({ children }: LayoutProps) {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-indigo-900 overflow-x-hidden">
+    <div className="bg-gradient-to-br from-gray-900 via-blue-900 to-indigo-900 overflow-x-hidden">
       {/* Tech Grid Background */}
       <div className="fixed inset-0 opacity-5">
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500 to-transparent h-px animate-pulse" style={{ top: '20%' }}></div>

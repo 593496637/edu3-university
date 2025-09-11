@@ -19,7 +19,8 @@
       "Bash(netstat:*)",
       "Bash(cmd //c:*)",
       "Bash(npx ts-node:*)",
-      "Bash(pnpm run dev:*)"
+      "Bash(pnpm run dev:*)",
+      "Bash(json_pp:*)"
     ],
     "deny": [],
     "ask": []

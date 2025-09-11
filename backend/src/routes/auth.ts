@@ -1,19 +1,31 @@
 import express from 'express';
 import { ethers } from 'ethers';
 import { sessionService } from '../services/sessionService';
+import { nonceService } from '../services/nonceService';
 
 const router = express.Router();
 
-// 登录接口 - 钱包签名验证
+// 登录接口 - 钱包签名验证 (支持nonce机制)
 router.post('/login', async (req, res) => {
   try {
-    const { walletAddress, signature, message, timestamp } = req.body;
+    const { walletAddress, signature, message, timestamp, nonce } = req.body;
 
     if (!walletAddress || !signature || !message || !timestamp) {
       return res.status(400).json({
         success: false,
         error: '缺少必要参数'
       });
+    }
+
+    // 如果提供了nonce，进行nonce验证（增强安全性）
+    if (nonce) {
+      const nonceValid = nonceService.validateAndConsumeNonce(nonce, walletAddress);
+      if (!nonceValid) {
+        return res.status(401).json({
+          success: false,
+          error: 'Nonce验证失败或已过期'
+        });
+      }
     }
 
     // 验证时间戳 (5分钟内有效)

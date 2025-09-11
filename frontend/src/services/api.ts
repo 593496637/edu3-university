@@ -34,10 +34,8 @@ class ApiService {
         throw new Error(data.error || data.message || 'Request failed');
       }
 
-      return {
-        success: true,
-        data,
-      };
+      // 直接返回后端的响应，不再包装
+      return data;
     } catch (error) {
       console.error('API request failed:', error);
       return {
@@ -124,7 +122,8 @@ export const userApi = {
     nickname: string,
     bio: string,
     signature: string,
-    timestamp: number
+    timestamp: number,
+    nonce?: string
   ) => {
     return apiService.post('/users/profile', {
       userAddress,
@@ -132,6 +131,7 @@ export const userApi = {
       bio,
       signature,
       timestamp,
+      ...(nonce && { nonce }),
     });
   },
 };
@@ -153,15 +153,31 @@ export const purchaseApi = {
   },
 };
 
+// Nonce API
+export const nonceApi = {
+  // 生成nonce
+  generate: async (walletAddress: string) => {
+    return apiService.post('/nonce/generate', {
+      walletAddress,
+    });
+  },
+
+  // 获取nonce统计
+  getStats: async () => {
+    return apiService.get('/nonce/stats');
+  },
+};
+
 // 认证API
 export const authApi = {
-  // 登录
-  login: async (walletAddress: string, signature: string, message: string, timestamp: number) => {
+  // 登录（支持nonce）
+  login: async (walletAddress: string, signature: string, message: string, timestamp: number, nonce?: string) => {
     return apiService.post('/auth/login', {
       walletAddress,
       signature,
       message,
       timestamp,
+      ...(nonce && { nonce }),
     });
   },
 

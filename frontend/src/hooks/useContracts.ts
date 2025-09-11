@@ -397,16 +397,21 @@ export function useContracts() {
     getStakeInfo: async (userAddress: string) => {
       try {
         const contract = await getContract(CONTRACT_ADDRESSES.SimpleStaking, SimpleStakingABI.abi);
-        const stakeInfo = await contract.stakes(userAddress);
+        const [amount, stakeTime] = await contract.getStakeInfo(userAddress);
         
         return {
-          amount: ethers.formatEther(stakeInfo.amount),
-          startTime: Number(stakeInfo.startTime),
-          isActive: stakeInfo.isActive
+          amount: ethers.formatEther(amount),
+          startTime: Number(stakeTime),
+          isActive: Number(amount) > 0
         } as StakeInfo;
       } catch (error) {
         console.error('获取质押信息失败:', error);
-        throw error;
+        // 返回默认值而不是抛出错误
+        return {
+          amount: '0',
+          startTime: 0,
+          isActive: false
+        } as StakeInfo;
       }
     },
 
@@ -419,6 +424,30 @@ export function useContracts() {
       } catch (error) {
         console.error('计算收益失败:', error);
         return '0';
+      }
+    },
+
+    // 获取总质押量
+    getTotalStaked: async (): Promise<string> => {
+      try {
+        const contract = await getContract(CONTRACT_ADDRESSES.SimpleStaking, SimpleStakingABI.abi);
+        const totalStaked = await contract.getTotalStaked();
+        return ethers.formatEther(totalStaked);
+      } catch (error) {
+        console.error('获取总质押量失败:', error);
+        return '0';
+      }
+    },
+
+    // 获取每日奖励率常量
+    getDailyRewardRate: async (): Promise<number> => {
+      try {
+        const contract = await getContract(CONTRACT_ADDRESSES.SimpleStaking, SimpleStakingABI.abi);
+        const rate = await contract.DAILY_REWARD_RATE();
+        return Number(rate); // 应该返回 100 (代表1%)
+      } catch (error) {
+        console.error('获取奖励率失败:', error);
+        return 100; // 默认1%
       }
     }
   };

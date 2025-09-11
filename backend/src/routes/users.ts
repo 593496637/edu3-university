@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { pool } from '../database';
 import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { nonceService } from '../services/nonceService';
 
 const router: Router = Router();
 
@@ -58,10 +59,10 @@ router.get('/:address', async (req, res) => {
   }
 });
 
-// 更新用户资料（需要签名验证）
+// 更新用户资料（需要签名验证，支持nonce机制）
 router.post('/profile', async (req, res) => {
   try {
-    const { userAddress, nickname, bio, signature, timestamp } = req.body;
+    const { userAddress, nickname, bio, signature, timestamp, nonce } = req.body;
 
     // 参数验证
     if (!userAddress || !signature || !timestamp) {
@@ -71,9 +72,23 @@ router.post('/profile', async (req, res) => {
       });
     }
 
+    // 如果提供了nonce，进行nonce验证（增强安全性）
+    if (nonce) {
+      const nonceValid = nonceService.validateAndConsumeNonce(nonce, userAddress);
+      if (!nonceValid) {
+        return res.status(401).json({
+          success: false,
+          error: 'Nonce验证失败或已过期'
+        });
+      }
+    }
+
     // 验证时间戳（5分钟内有效）
-    const now = Math.floor(Date.now() / 1000);
-    if (Math.abs(now - timestamp) > 300) {
+    const now = Date.now(); // 保持毫秒格式
+    const timestampMs = typeof timestamp === 'number' ? timestamp : parseInt(timestamp);
+    const timeDiff = Math.abs(now - timestampMs) / 1000; // 转换为秒进行比较
+    
+    if (timeDiff > 300) { // 5分钟 = 300秒
       return res.status(400).json({
         success: false,
         error: '签名已过期'
