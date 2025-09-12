@@ -1,7 +1,7 @@
-import Modal from '../ui/Modal';
-import Button from '../ui/Button';
-import { useWalletContext } from '../../context/WalletContext';
-import type { CourseDetailModalProps } from '../../types/course';
+import Modal from '../../../components/ui/Modal';
+import Button from '../../../components/ui/Button';
+import { useAuthStore } from '../../../store/authStore';
+import type { CourseDetailModalProps } from '../../../types/course';
 
 export default function CourseDetailModal({
   course,
@@ -14,7 +14,7 @@ export default function CourseDetailModal({
   onPurchase,
   onStartLearning
 }: CourseDetailModalProps) {
-  const { account } = useWalletContext();
+  const { account } = useAuthStore();
   
   if (!course) return null;
 

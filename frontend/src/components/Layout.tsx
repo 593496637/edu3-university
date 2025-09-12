@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router";
 import { useState, useEffect } from "react";
-import { useWalletContext } from "../context/WalletContext";
+import { useWallet } from "../hooks/useWallet";
+import { useAuthStore } from "../store/authStore";
 import { useContracts } from "../hooks/useContracts";
 import OwnerPanel from "./OwnerPanel";
 import WalletButton from "./WalletButton";
@@ -13,8 +14,10 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const [isOwner, setIsOwner] = useState(false);
   const [showOwnerPanel, setShowOwnerPanel] = useState(false);
-  const { account, isConnected, isCorrectNetwork } = useWalletContext();
-  const { tokenOperations, isReady } = useContracts();
+  const { account, isConnected, isCorrectNetwork } = useAuthStore();
+  const { getYDTokenContract } = useContracts();
+  
+  useWallet(); // Initialize wallet connection
   
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -23,9 +26,10 @@ export default function Layout({ children }: LayoutProps) {
   // 检查用户是否是合约owner
   useEffect(() => {
     const checkOwner = async () => {
-      if (isReady && account) {
+      if (isConnected && account) {
         try {
-          const ownerAddress = await tokenOperations.getOwner();
+          const contract = await getYDTokenContract();
+          const ownerAddress = await contract.owner();
           setIsOwner(account.toLowerCase() === ownerAddress.toLowerCase());
         } catch (error) {
           console.error('检查owner失败:', error);
@@ -37,7 +41,7 @@ export default function Layout({ children }: LayoutProps) {
     };
 
     checkOwner();
-  }, [isReady, account, tokenOperations]);
+  }, [isConnected, account, getYDTokenContract]);
 
 
   return (

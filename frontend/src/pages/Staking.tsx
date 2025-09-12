@@ -1,59 +1,27 @@
-import { useState, useEffect } from 'react';
-import { useWalletContext } from '../context/WalletContext';
-import { useContracts } from '../hooks/useContracts';
-
-interface StakeInfo {
-  amount: string;
-  startTime: number;
-  isActive: boolean;
-}
+import { useState } from 'react';
+import { useAuthStore } from '../store/authStore';
+import { useStaking } from '../features/staking/hooks/useStaking';
 
 export default function Staking() {
-  const { account, isConnected } = useWalletContext();
-  const { tokenOperations, stakingOperations, loading, isReady } = useContracts();
+  const { isConnected } = useAuthStore();
+  const {
+    loading,
+    stakeInfo,
+    reward,
+    totalStaked,
+    dailyRewardRate,
+    handleStake,
+    handleUnstake
+  } = useStaking();
   
   const [stakeAmount, setStakeAmount] = useState('');
-  const [balance, setBalance] = useState('0');
-  const [stakeInfo, setStakeInfo] = useState<StakeInfo>({ amount: '0', startTime: 0, isActive: false });
-  const [reward, setReward] = useState('0');
-  const [totalStaked, setTotalStaked] = useState('0');
-  const [dailyRate, setDailyRate] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // 加载用户数据
-  useEffect(() => {
-    if (account && isReady) {
-      loadUserData();
-      const interval = setInterval(loadUserData, 30000); // 每30秒刷新一次
-      return () => clearInterval(interval);
-    }
-  }, [account, isReady]);
+  const { balance } = useAuthStore();
 
-  const loadUserData = async () => {
-    if (!account) return;
-    
-    try {
-      const [userBalance, userStakeInfo, userReward, totalStakedAmount, rewardRate] = await Promise.all([
-        tokenOperations.getBalance(account),
-        stakingOperations.getStakeInfo(account),
-        stakingOperations.calculateReward(account),
-        stakingOperations.getTotalStaked(),
-        stakingOperations.getDailyRewardRate()
-      ]);
-      
-      setBalance(userBalance);
-      setStakeInfo(userStakeInfo);
-      setReward(userReward);
-      setTotalStaked(totalStakedAmount);
-      setDailyRate(rewardRate / 100); // 转换为百分比
-    } catch (error) {
-      console.error('加载用户数据失败:', error);
-    }
-  };
-
-  const handleStake = async () => {
-    if (!account || !stakeAmount || parseFloat(stakeAmount) <= 0) {
+  const onStake = async () => {
+    if (!stakeAmount || parseFloat(stakeAmount) <= 0) {
       setMessage('请输入有效的质押数量');
       return;
     }
@@ -63,50 +31,45 @@ export default function Staking() {
       return;
     }
 
-    setIsLoading(true);
+    setIsProcessing(true);
     setMessage('');
     
     try {
-      // 1. 先授权质押合约
-      setMessage('授权中...');
-      await tokenOperations.approve('0xf5924164C4685f650948bf4a51124f0CB24DA026', stakeAmount);
-      
-      // 2. 执行质押
       setMessage('质押中...');
-      await stakingOperations.stake(stakeAmount);
+      await handleStake(stakeAmount);
       
       setMessage('质押成功！');
       setStakeAmount('');
-      await loadUserData(); // 刷新数据
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('质押失败:', error);
-      setMessage(`质押失败: ${error.message || '未知错误'}`);
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      setMessage(`质押失败: ${errorMessage}`);
     } finally {
-      setIsLoading(false);
+      setIsProcessing(false);
       setTimeout(() => setMessage(''), 3000);
     }
   };
 
-  const handleUnstake = async () => {
-    if (!account || !stakeInfo.isActive) {
+  const onUnstake = async () => {
+    if (!stakeInfo.isActive) {
       setMessage('当前没有质押');
       return;
     }
 
-    setIsLoading(true);
+    setIsProcessing(true);
     setMessage('');
     
     try {
       setMessage('取消质押中...');
-      await stakingOperations.unstake();
+      await handleUnstake();
       
       setMessage('取消质押成功，本金和收益已返还！');
-      await loadUserData(); // 刷新数据
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('取消质押失败:', error);
-      setMessage(`取消质押失败: ${error.message || '未知错误'}`);
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      setMessage(`取消质押失败: ${errorMessage}`);
     } finally {
-      setIsLoading(false);
+      setIsProcessing(false);
       setTimeout(() => setMessage(''), 3000);
     }
   };
@@ -121,6 +84,8 @@ export default function Staking() {
     const now = Math.floor(Date.now() / 1000);
     return Math.max(0, Math.floor((now - startTime) / 86400));
   };
+
+  const dailyRatePercent = dailyRewardRate / 100;
 
   if (!isConnected) {
     return (
@@ -149,11 +114,11 @@ export default function Staking() {
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 p-6 rounded-2xl text-center">
-            <div className="text-3xl font-bold text-green-400 mb-2">{(dailyRate * 365).toFixed(0)}%</div>
+            <div className="text-3xl font-bold text-green-400 mb-2">{(dailyRatePercent * 365).toFixed(0)}%</div>
             <div className="text-gray-400">APY年化收益率</div>
           </div>
           <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 p-6 rounded-2xl text-center">
-            <div className="text-3xl font-bold text-green-400 mb-2">{dailyRate}%</div>
+            <div className="text-3xl font-bold text-green-400 mb-2">{dailyRatePercent}%</div>
             <div className="text-gray-400">每日收益率</div>
           </div>
           <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 p-6 rounded-2xl text-center">
@@ -226,7 +191,7 @@ export default function Staking() {
                     placeholder="输入质押数量"
                     value={stakeAmount}
                     onChange={(e) => setStakeAmount(e.target.value)}
-                    disabled={isLoading || loading}
+                    disabled={isProcessing || loading}
                     className="w-full px-4 py-4 pr-16 bg-gray-700/50 border border-gray-600/50 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-200 disabled:opacity-50"
                   />
                   <div className="absolute right-4 top-4 text-gray-400">YD</div>
@@ -258,19 +223,19 @@ export default function Staking() {
 
               <div className="space-y-4">
                 <button 
-                  onClick={handleStake}
-                  disabled={isLoading || loading || !stakeAmount || parseFloat(stakeAmount) <= 0}
+                  onClick={onStake}
+                  disabled={isProcessing || loading || !stakeAmount || parseFloat(stakeAmount) <= 0}
                   className="w-full bg-gradient-to-r from-green-600 to-teal-600 text-white py-4 px-6 rounded-xl hover:from-green-500 hover:to-teal-500 transition-all duration-300 shadow-lg hover:shadow-green-500/25 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? '处理中...' : '质押代币'}
+                  {isProcessing ? '处理中...' : '质押代币'}
                 </button>
                 
                 <button 
-                  onClick={handleUnstake}
-                  disabled={isLoading || loading || !stakeInfo.isActive}
+                  onClick={onUnstake}
+                  disabled={isProcessing || loading || !stakeInfo.isActive}
                   className="w-full bg-gradient-to-r from-red-600 to-pink-600 text-white py-4 px-6 rounded-xl hover:from-red-500 hover:to-pink-500 transition-all duration-300 shadow-lg hover:shadow-red-500/25 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? '处理中...' : '取消质押'}
+                  {isProcessing ? '处理中...' : '取消质押'}
                 </button>
               </div>
 

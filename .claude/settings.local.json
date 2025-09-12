@@ -22,7 +22,8 @@
       "Bash(pnpm run dev:*)",
       "Bash(json_pp:*)",
       "Bash(tree:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(npm run lint)"
     ],
     "deny": [],
     "ask": []

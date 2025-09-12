@@ -1,7 +1,7 @@
-import Button from '../ui/Button';
-import Badge from '../ui/Badge';
-import Card from '../ui/Card';
-import { useWalletContext } from '../../context/WalletContext';
+import Button from '../../../components/ui/Button';
+import Badge from '../../../components/ui/Badge';
+import Card from '../../../components/ui/Card';
+import { useAuthStore } from '../../../store/authStore';
 
 interface Course {
   id: number;
@@ -41,7 +41,7 @@ export default function CourseCard({
   onManage,
   onClick
 }: CourseCardProps) {
-  const { account } = useWalletContext();
+  const { account } = useAuthStore();
   const isOwner = account?.toLowerCase() === course.instructor.toLowerCase();
   const isPurchased = course.hasPurchased || purchasedCourses.has(course.id);
   const isApproved = approvedCourses.has(course.id);

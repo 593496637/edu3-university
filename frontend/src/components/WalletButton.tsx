@@ -1,28 +1,22 @@
-import { useWalletContext } from '../context/WalletContext';
+import { useWallet } from '../hooks/useWallet';
+import { useAuthStore } from '../store/authStore';
 
 export default function WalletButton() {
-  const { 
-    account, 
-    isConnected, 
-    isCorrectNetwork, 
-    loading, 
-    connectWallet, 
-    switchToSepolia, 
-    disconnectWallet,
-    formatAddress 
-  } = useWalletContext();
+  const { account, isConnected, isCorrectNetwork } = useAuthStore();
+  const { connectWallet, switchToSepolia, disconnectWallet, formatAddress } = useWallet();
 
-  if (loading) {
+  if (!window.ethereum) {
     return (
       <button 
         disabled
-        className="bg-gray-600/50 text-gray-300 px-6 py-2 rounded-xl text-sm font-medium cursor-not-allowed border border-gray-600/50 flex items-center gap-2"
+        className="bg-red-600/50 text-red-300 px-6 py-2 rounded-xl text-sm font-medium cursor-not-allowed border border-red-600/50"
       >
-        <div className="w-4 h-4 border-2 border-gray-400/30 border-t-gray-300 rounded-full animate-spin"></div>
-        连接中...
+        请安装 MetaMask
       </button>
     );
   }
+
+  // Note: loading state removed for simplicity
 
   if (isConnected && account) {
     if (!isCorrectNetwork) {

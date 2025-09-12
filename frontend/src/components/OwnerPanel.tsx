@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useWalletContext } from '../context/WalletContext';
-import { useContracts } from '../hooks/useContracts';
+import { useAuthStore } from '../store/authStore';
+import { courseService } from '../services/courseService';
 
 interface OwnerPanelProps {
   isOpen: boolean;
@@ -10,8 +10,8 @@ interface OwnerPanelProps {
 export default function OwnerPanel({ isOpen, onClose }: OwnerPanelProps) {
   const [userAddress, setUserAddress] = useState('');
   const [ydAmount, setYdAmount] = useState('');
-  const { isConnected } = useWalletContext();
-  const { tokenOperations, loading } = useContracts();
+  const { isConnected } = useAuthStore();
+  const [loading, setLoading] = useState(false);
 
   const handleMintTokens = async (e: React.FormEvent) => {
     e.preventDefault();
