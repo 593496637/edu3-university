@@ -20,7 +20,9 @@
       "Bash(cmd //c:*)",
       "Bash(npx ts-node:*)",
       "Bash(pnpm run dev:*)",
-      "Bash(json_pp:*)"
+      "Bash(json_pp:*)",
+      "Bash(tree:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

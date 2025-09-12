@@ -1,20 +1,6 @@
-import { pool } from '../database';
 import crypto from 'crypto';
 import { ethers } from 'ethers';
-
-export interface SessionData {
-  sessionToken: string;
-  userAddress: string;
-  expiresAt: Date;
-}
-
-export interface CourseAccessToken {
-  userAddress: string;
-  courseId: number;
-  signature: string;
-  signedMessage: string;
-  expiresAt: Date;
-}
+import { sessionRepository } from '../repositories/session.repository';
 
 export class SessionService {
   // 生成随机session token
@@ -29,16 +15,14 @@ export class SessionService {
     
     try {
       // 先删除该用户的旧session
-      await pool.execute(
-        'DELETE FROM user_sessions WHERE user_address = ?',
-        [userAddress.toLowerCase()]
-      );
+      await sessionRepository.deleteUserSessions(userAddress.toLowerCase());
 
       // 创建新session
-      await pool.execute(
-        'INSERT INTO user_sessions (user_address, session_token, expires_at) VALUES (?, ?, ?)',
-        [userAddress.toLowerCase(), sessionToken, expiresAt]
-      );
+      await sessionRepository.createSession({
+        userAddress: userAddress.toLowerCase(),
+        sessionToken,
+        expiresAt
+      });
 
       console.log(`✅ 为用户 ${userAddress} 创建会话，有效期至: ${expiresAt}`);
       return sessionToken;
@@ -51,17 +35,8 @@ export class SessionService {
   // 验证session token
   async validateSession(sessionToken: string): Promise<string | null> {
     try {
-      const [rows] = await pool.execute(
-        'SELECT user_address, expires_at FROM user_sessions WHERE session_token = ? AND expires_at > NOW()',
-        [sessionToken]
-      ) as any;
-
-      if (rows.length === 0) {
-        return null;
-      }
-
-      const { user_address } = rows[0];
-      return user_address;
+      const session = await sessionRepository.findSessionByToken(sessionToken);
+      return session?.user_address || null;
     } catch (error) {
       console.error('验证session失败:', error);
       return null;
@@ -71,10 +46,7 @@ export class SessionService {
   // 删除session
   async deleteSession(sessionToken: string): Promise<void> {
     try {
-      await pool.execute(
-        'DELETE FROM user_sessions WHERE session_token = ?',
-        [sessionToken]
-      );
+      await sessionRepository.deleteSession(sessionToken);
     } catch (error) {
       console.error('删除session失败:', error);
     }
@@ -91,12 +63,13 @@ export class SessionService {
     const expiresAt = new Date(Date.now() + durationHours * 60 * 60 * 1000);
     
     try {
-      // 使用 REPLACE INTO 来处理重复记录
-      await pool.execute(`
-        REPLACE INTO course_access_tokens 
-        (user_address, course_id, signature, signed_message, expires_at) 
-        VALUES (?, ?, ?, ?, ?)
-      `, [userAddress.toLowerCase(), courseId, signature, signedMessage, expiresAt]);
+      await sessionRepository.createCourseAccessToken({
+        userAddress: userAddress.toLowerCase(),
+        courseId,
+        signature,
+        signedMessage,
+        expiresAt
+      });
 
       console.log(`✅ 存储课程 ${courseId} 访问令牌，用户: ${userAddress}, 有效期至: ${expiresAt}`);
     } catch (error) {
@@ -114,18 +87,14 @@ export class SessionService {
   ): Promise<boolean> {
     try {
       // 1. 检查数据库中的缓存签名
-      const [rows] = await pool.execute(`
-        SELECT signature, signed_message, expires_at 
-        FROM course_access_tokens 
-        WHERE user_address = ? AND course_id = ? AND expires_at > NOW()
-      `, [userAddress.toLowerCase(), courseId]) as any;
+      const existingToken = await sessionRepository.findCourseAccessToken(
+        userAddress.toLowerCase(), 
+        courseId
+      );
 
-      if (rows.length > 0) {
-        const { signature: storedSignature } = rows[0];
-        if (storedSignature === signature) {
-          console.log(`✅ 使用缓存的课程访问令牌: ${userAddress} -> ${courseId}`);
-          return true;
-        }
+      if (existingToken && existingToken.signature === signature) {
+        console.log(`✅ 使用缓存的课程访问令牌: ${userAddress} -> ${courseId}`);
+        return true;
       }
 
       // 2. 验证新的签名
@@ -166,14 +135,10 @@ export class SessionService {
   async cleanupExpiredTokens(): Promise<void> {
     try {
       // 清理过期的session
-      const [sessionResult] = await pool.execute(
-        'DELETE FROM user_sessions WHERE expires_at <= NOW()'
-      ) as any;
+      const sessionResult = await sessionRepository.cleanExpiredSessions();
 
       // 清理过期的课程访问令牌
-      const [tokenResult] = await pool.execute(
-        'DELETE FROM course_access_tokens WHERE expires_at <= NOW()'
-      ) as any;
+      const tokenResult = await sessionRepository.cleanExpiredCourseAccessTokens();
 
       console.log(`🧹 清理过期令牌: ${sessionResult.affectedRows} 个session, ${tokenResult.affectedRows} 个访问令牌`);
     } catch (error) {

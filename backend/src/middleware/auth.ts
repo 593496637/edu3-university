@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { sessionService } from '../services/sessionService';
+import { sessionService } from '../core/services/session.service';
 
 // 扩展Request接口添加user信息
 declare global {
