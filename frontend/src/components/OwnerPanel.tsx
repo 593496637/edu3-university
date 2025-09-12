@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { courseService } from '../services/courseService';
+import { useContracts } from '../hooks/useContracts';
+import { ethers } from 'ethers';
+import { useToastContext } from '../hooks/useToastContext';
+import { ERROR_MESSAGES, SUCCESS_MESSAGES, UI_CONFIG } from '../config/constants';
 
 interface OwnerPanelProps {
   isOpen: boolean;
@@ -12,12 +15,14 @@ export default function OwnerPanel({ isOpen, onClose }: OwnerPanelProps) {
   const [ydAmount, setYdAmount] = useState('');
   const { isConnected } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const { getYDTokenContract } = useContracts();
+  const { toast } = useToastContext();
 
   const handleMintTokens = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!isConnected) {
-      alert('请先连接钱包');
+      alert(ERROR_MESSAGES.LOGIN_REQUIRED);
       return;
     }
     
@@ -28,26 +33,36 @@ export default function OwnerPanel({ isOpen, onClose }: OwnerPanelProps) {
 
     // 验证用户地址格式
     if (!userAddress.startsWith('0x') || userAddress.length !== 42) {
-      alert('请输入有效的以太坊地址');
+      alert(ERROR_MESSAGES.INVALID_ADDRESS);
       return;
     }
 
     // 验证代币数量
     const amount = parseFloat(ydAmount);
     if (isNaN(amount) || amount <= 0) {
-      alert('请输入有效的代币数量');
+      alert(ERROR_MESSAGES.INVALID_AMOUNT);
       return;
     }
 
     try {
-      const txHash = await tokenOperations.mintExchangeTokens(userAddress, amount);
-      alert(`代币发放成功！\n\n交易哈希: ${txHash}\n用户地址: ${userAddress}\n代币数量: ${amount} YD`);
+      setLoading(true);
+      const contract = await getYDTokenContract();
+      const amountWei = ethers.parseUnits(amount.toString(), 18);
+      
+      const tx = await contract.mint(userAddress, amountWei);
+      toast.success(`代币发放交易已提交: ${tx.hash}`);
+      
+      await tx.wait();
+      const addressDisplay = `${userAddress.slice(0, UI_CONFIG.ADDRESS_DISPLAY_LENGTH.PREFIX)}...${userAddress.slice(-UI_CONFIG.ADDRESS_DISPLAY_LENGTH.SUFFIX)}`;
+      toast.success(`${SUCCESS_MESSAGES.TOKEN_MINT_SUCCESS}！发放 ${amount} YD 给 ${addressDisplay}`);
       setUserAddress('');
       setYdAmount('');
     } catch (error: unknown) {
-      console.error('发放代币失败:', error);
-      const errorMessage = error instanceof Error ? error.message : '请检查权限和参数';
-      alert(`发放失败: ${errorMessage}`);
+      console.error(ERROR_MESSAGES.MINT_FAILED + ':', error);
+      const errorMessage = error instanceof Error ? error.message : ERROR_MESSAGES.INSUFFICIENT_PERMISSIONS;
+      toast.error(`${ERROR_MESSAGES.MINT_FAILED}: ${errorMessage}`);
+    } finally {
+      setLoading(false);
     }
   };
 

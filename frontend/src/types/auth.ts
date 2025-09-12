@@ -38,7 +38,14 @@ export interface AccessMessageResponse {
 
 export interface CourseAccessResponse {
   success: boolean;
-  data?: any;
+  data?: {
+    course: {
+      id: number;
+      title: string;
+      description: string;
+      content?: string;
+    };
+  };
   error?: string;
   needsNewSignature?: boolean;
 }

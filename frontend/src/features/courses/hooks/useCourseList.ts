@@ -28,7 +28,19 @@ export const useCourseList = () => {
       const data = await response.json();
       
       if (data.success && data.data.courses) {
-        const coursesData = data.data.courses.map((apiCourse: any) => ({
+        const coursesData = data.data.courses.map((apiCourse: {
+          courseId: number;
+          title?: string;
+          description?: string;
+          category?: string;
+          price: string;
+          instructor?: string;
+          instructorAddress?: string;
+          isActive: boolean;
+          createdAt: number;
+          coverImageUrl?: string;
+          hasPurchased?: boolean;
+        }) => ({
           id: apiCourse.courseId,
           title: apiCourse.title || `课程 #${apiCourse.courseId}`,
           description: apiCourse.description || `分类: ${apiCourse.category}`,

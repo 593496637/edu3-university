@@ -1,4 +1,5 @@
 import { nonceApi } from './api';
+import { UI_CONFIG } from '../config/constants';
 
 interface NonceData {
   nonce: string;
@@ -28,7 +29,7 @@ class NonceService {
         throw new Error(response.error || '获取nonce失败');
       }
 
-      const { nonce, expiresIn } = response.data;
+      const { nonce, expiresIn } = response.data as { nonce: string; expiresIn: number };
       const expiresAt = Date.now() + (expiresIn * 1000); // 转换为毫秒
 
       // 缓存nonce
@@ -108,7 +109,7 @@ class NonceService {
 // 创建单例实例
 export const nonceService = new NonceService();
 
-// 每2分钟清理一次过期缓存
+// 定期清理过期缓存
 setInterval(() => {
   nonceService.cleanupExpiredNonces();
-}, 2 * 60 * 1000);
+}, UI_CONFIG.NONCE_CLEANUP_INTERVAL_MS);

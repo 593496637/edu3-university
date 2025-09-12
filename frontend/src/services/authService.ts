@@ -1,9 +1,8 @@
 import { ethers } from 'ethers';
 import { nonceService } from './nonceService';
 import { authApi } from './api';
+import { API_BASE_URL, UI_CONFIG, ERROR_MESSAGES } from '../config/constants';
 import type { LoginResponse, CourseAccessMessage, SignatureCache } from '../types/auth';
-
-const API_BASE_URL = 'http://localhost:3001/api';
 
 class AuthService {
   private sessionToken: string | null = null;
@@ -17,7 +16,7 @@ class AuthService {
     if (cachedSignatures) {
       try {
         const cache = JSON.parse(cachedSignatures);
-        this.signatureCache = new Map(Object.entries(cache).map(([key, value]) => [parseInt(key), value as any]));
+        this.signatureCache = new Map(Object.entries(cache).map(([key, value]) => [parseInt(key), value as SignatureCache]));
         console.log('📦 恢复签名缓存:', this.signatureCache.size, '个签名');
       } catch (error) {
         console.warn('恢复签名缓存失败:', error);
@@ -52,12 +51,14 @@ class AuthService {
         nonceService.consumeNonce(walletAddress);
       }
       
-      if (result.success && result.data?.sessionToken) {
-        this.sessionToken = result.data.sessionToken;
-        localStorage.setItem('sessionToken', this.sessionToken);
+      if (result.success && result.data && typeof result.data === 'object' && 'sessionToken' in result.data) {
+        this.sessionToken = (result.data as { sessionToken: string }).sessionToken;
+        if (this.sessionToken) {
+          localStorage.setItem('sessionToken', this.sessionToken);
+        }
       }
 
-      return result;
+      return result as LoginResponse;
     } catch (error) {
       console.error('Login failed:', error);
       return {
@@ -126,7 +127,7 @@ class AuthService {
   // 获取课程访问签名消息
   async generateCourseAccessMessage(courseId: number): Promise<CourseAccessMessage | null> {
     if (!this.sessionToken) {
-      throw new Error('请先登录');
+      throw new Error(ERROR_MESSAGES.LOGIN_REQUIRED);
     }
 
     try {
@@ -158,7 +159,7 @@ class AuthService {
     
     // 检查是否过期（提前5分钟过期以确保安全）
     const now = Date.now();
-    if (now >= cached.expiresAt - 5 * 60 * 1000) {
+    if (now >= cached.expiresAt - UI_CONFIG.SIGNATURE_CACHE_EXPIRY_BUFFER_MS) {
       this.signatureCache.delete(courseId);
       this.saveSignatureCache();
       return null;
@@ -207,8 +208,7 @@ class AuthService {
       
       // 如果验证成功，保存签名到缓存
       if (result.success) {
-        // 从访问消息中提取过期时间（2小时后）
-        const expiresAt = timestamp + 2 * 60 * 60 * 1000;
+        const expiresAt = timestamp + UI_CONFIG.COURSE_ACCESS_TOKEN_DURATION_MS;
         this.saveSignature(courseId, signature, timestamp, expiresAt);
       }
       
@@ -220,7 +220,7 @@ class AuthService {
   }
   
   // 智能课程访问 - 优先使用缓存签名
-  async accessCourseWithCache(courseId: number, userAddress: string, signer: any) {
+  async accessCourseWithCache(courseId: number, userAddress: string, signer: ethers.Signer) {
     // 1. 先检查缓存签名
     const cachedSig = this.getCachedSignature(courseId);
     if (cachedSig) {
@@ -231,6 +231,9 @@ class AuthService {
     // 2. 缓存签名无效，生成新签名
     console.log('🔑 生成新的课程访问签名');
     const accessMessage = await this.generateCourseAccessMessage(courseId);
+    if (!accessMessage) {
+      throw new Error(ERROR_MESSAGES.COURSE_ACCESS_FAILED);
+    }
     const signature = await signer.signMessage(accessMessage.message);
     
     // 3. 使用新签名访问
@@ -270,6 +273,9 @@ class AuthService {
       // 3. 无缓存签名，需要新的课程访问签名
       console.log('🔑 登录后生成课程访问签名');
       const accessMessage = await this.generateCourseAccessMessage(courseId);
+      if (!accessMessage) {
+        throw new Error(ERROR_MESSAGES.COURSE_ACCESS_FAILED);
+      }
       const signature = await signer.signMessage(accessMessage.message);
       
       return await this.accessCourseDetails(courseId, walletAddress, signature, accessMessage.timestamp);

@@ -31,7 +31,7 @@ export const useStaking = () => {
     return await provider.getSigner();
   }, [getProvider]);
 
-  const getContract = useCallback(async (address: string, abi: any) => {
+  const getContract = useCallback(async (address: string, abi: ethers.InterfaceAbi) => {
     const signer = await getSigner();
     return new ethers.Contract(address, abi, signer);
   }, [getSigner]);

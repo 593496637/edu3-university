@@ -20,7 +20,7 @@ export function useContracts() {
     return await provider.getSigner();
   }, [getProvider]);
 
-  const getContract = useCallback(async (address: string, abi: any) => {
+  const getContract = useCallback(async (address: string, abi: ethers.InterfaceAbi) => {
     const signer = await getSigner();
     return new ethers.Contract(address, abi, signer);
   }, [getSigner]);
@@ -37,7 +37,7 @@ export function useContracts() {
     return await getContract(CONTRACT_ADDRESSES.SimpleStaking, SimpleStakingABI.abi);
   }, [getContract]);
 
-  const getReadOnlyContract = useCallback((address: string, abi: any) => {
+  const getReadOnlyContract = useCallback((address: string, abi: ethers.InterfaceAbi) => {
     const provider = getProvider();
     return new ethers.Contract(address, abi, provider);
   }, [getProvider]);

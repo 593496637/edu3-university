@@ -1,8 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
-
-const SEPOLIA_CHAIN_ID = '0xaa36a7';
-const SEPOLIA_RPC = 'https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161';
+import { NETWORK_CONFIG, ERROR_MESSAGES, UI_CONFIG } from '../config/constants';
 
 export function useWallet() {
   const {
@@ -22,13 +20,13 @@ export function useWallet() {
       const currentChainId = await window.ethereum.request({ method: 'eth_chainId' }) as string;
       const chainIdDecimal = parseInt(currentChainId, 16);
       setChainId(chainIdDecimal);
-      setCorrectNetwork(currentChainId === SEPOLIA_CHAIN_ID);
+      setCorrectNetwork(currentChainId === NETWORK_CONFIG.SEPOLIA_CHAIN_ID_HEX);
     }
   }, [setChainId, setCorrectNetwork]);
 
   const connectWallet = async () => {
     if (!window.ethereum) {
-      alert('请安装 MetaMask!');
+      alert(ERROR_MESSAGES.WALLET_NOT_INSTALLED);
       return;
     }
 
@@ -43,7 +41,7 @@ export function useWallet() {
         await checkNetwork();
       }
     } catch (error) {
-      console.error('连接钱包失败:', error);
+      console.error(ERROR_MESSAGES.WALLET_CONNECTION_FAILED + ':', error);
     }
   };
 
@@ -53,7 +51,7 @@ export function useWallet() {
     try {
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: SEPOLIA_CHAIN_ID }],
+        params: [{ chainId: NETWORK_CONFIG.SEPOLIA_CHAIN_ID_HEX }],
       });
       setCorrectNetwork(true);
     } catch (error: unknown) {
@@ -64,9 +62,9 @@ export function useWallet() {
             method: 'wallet_addEthereumChain',
             params: [
               {
-                chainId: SEPOLIA_CHAIN_ID,
+                chainId: NETWORK_CONFIG.SEPOLIA_CHAIN_ID_HEX,
                 chainName: 'Sepolia Testnet',
-                rpcUrls: [SEPOLIA_RPC],
+                rpcUrls: [NETWORK_CONFIG.SEPOLIA_RPC],
                 nativeCurrency: {
                   name: 'SepoliaETH',
                   symbol: 'SEP',
@@ -89,7 +87,7 @@ export function useWallet() {
   }, [reset]);
 
   const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    return `${address.slice(0, UI_CONFIG.ADDRESS_DISPLAY_LENGTH.PREFIX)}...${address.slice(-UI_CONFIG.ADDRESS_DISPLAY_LENGTH.SUFFIX)}`;
   };
 
   const handleAccountsChanged = useCallback((accounts: string[]) => {

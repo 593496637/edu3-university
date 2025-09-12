@@ -33,7 +33,7 @@ export class CourseService {
     return this.signer;
   }
 
-  private async getContract(address: string, abi: any): Promise<ethers.Contract> {
+  private async getContract(address: string, abi: ethers.InterfaceAbi): Promise<ethers.Contract> {
     const signer = await this.getSigner();
     return new ethers.Contract(address, abi, signer);
   }

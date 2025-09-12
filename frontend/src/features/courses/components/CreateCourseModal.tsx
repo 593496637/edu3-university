@@ -95,9 +95,9 @@ export default function CreateCourseModal({ isOpen, onClose, onSuccess }: Create
         onSuccess();
         onClose();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('创建课程失败:', error);
-      const errorMessage = error?.message || '未知错误';
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
       
       if (errorMessage.includes('insufficient funds') || errorMessage.includes('gas')) {
         alert('创建失败：ETH 余额不足，无法支付 gas 费用\n\n请确保您的钱包中有足够的 ETH 来支付交易费用。');
