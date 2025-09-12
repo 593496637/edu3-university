@@ -1,22 +1,8 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext } from 'react';
 import { useWallet } from '../hooks/useWallet';
-
-interface WalletContextType {
-  account: string | null;
-  isConnected: boolean;
-  isCorrectNetwork: boolean;
-  loading: boolean;
-  connectWallet: () => Promise<void>;
-  switchToSepolia: () => Promise<void>;
-  disconnectWallet: () => void;
-  formatAddress: (address: string) => string;
-}
+import type { WalletContextType, WalletProviderProps } from '../types/context';
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
-
-interface WalletProviderProps {
-  children: ReactNode;
-}
 
 export function WalletProvider({ children }: WalletProviderProps) {
   const walletState = useWallet();

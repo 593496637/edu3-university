@@ -1,13 +1,4 @@
-import type { ReactNode } from 'react';
-
-interface ModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  title: string;
-  children: ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
-  className?: string;
-}
+import type { ModalProps } from '../../types/ui';
 
 export default function Modal({ 
   isOpen, 

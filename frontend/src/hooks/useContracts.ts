@@ -10,7 +10,6 @@ import type {
   AbiFragment,
   StakeInfo,
   CreateCourseResult,
-  CreateCourseApiRequest,
   RecordPurchaseRequest
 } from '../types/contracts';
 

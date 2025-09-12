@@ -1,30 +1,13 @@
 import { ethers } from 'ethers';
 import { nonceService } from './nonceService';
 import { authApi } from './api';
+import type { LoginResponse, CourseAccessMessage, SignatureCache } from '../types/auth';
 
 const API_BASE_URL = 'http://localhost:3001/api';
 
-export interface LoginResponse {
-  success: boolean;
-  data?: {
-    sessionToken: string;
-    walletAddress: string;
-    expiresIn: number;
-  };
-  error?: string;
-}
-
-export interface CourseAccessMessage {
-  message: string;
-  timestamp: number;
-  courseId: number;
-  userAddress: string;
-  expiresAt: string;
-}
-
 class AuthService {
   private sessionToken: string | null = null;
-  private signatureCache: Map<number, {signature: string, timestamp: number, expiresAt: number}> = new Map();
+  private signatureCache: Map<number, SignatureCache> = new Map();
 
   constructor() {
     // 从localStorage恢复session

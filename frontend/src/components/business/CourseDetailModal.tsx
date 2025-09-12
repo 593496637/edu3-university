@@ -1,43 +1,7 @@
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { useWalletContext } from '../../context/WalletContext';
-
-interface Course {
-  id: number;
-  title: string;
-  description: string;
-  price: string;
-  instructor: string;
-  isActive: boolean;
-  createdAt: number;
-  category?: string;
-  coverImageUrl?: string;
-  hasPurchased?: boolean;
-  courseContent?: {
-    lessons: Array<{
-      id: number;
-      title: string;
-      videoUrl?: string;
-      duration?: string;
-    }>;
-    resources?: Array<{
-      name: string;
-      url: string;
-    }>;
-  };
-}
-
-interface CourseDetailModalProps {
-  course: Course | null;
-  isOpen: boolean;
-  onClose: () => void;
-  purchasedCourses: Set<number>;
-  approvedCourses: Set<number>;
-  loading: boolean;
-  onApprove: (course: Course) => void;
-  onPurchase: (course: Course) => void;
-  onStartLearning: (course: Course) => void;
-}
+import type { CourseDetailModalProps } from '../../types/course';
 
 export default function CourseDetailModal({
   course,

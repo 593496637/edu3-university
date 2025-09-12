@@ -1,13 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import type { ToastType, ToastProps } from '../../types/ui';
 
-export type ToastType = 'success' | 'error' | 'warning' | 'info';
-
-interface ToastProps {
-  message: string;
-  type: ToastType;
-  duration?: number;
-  onClose: () => void;
-}
+export type { ToastType };
 
 function Toast({ message, type, duration = 4000, onClose }: ToastProps) {
   useEffect(() => {
