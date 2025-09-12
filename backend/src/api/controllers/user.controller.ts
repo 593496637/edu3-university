@@ -1,55 +1,55 @@
 import { Request, Response, NextFunction } from 'express';
 import { userService } from '../../core/services/user.service';
-import { nonceService } from '../../core/services/nonce.service';
+import { BaseController } from './BaseController';
 
-export const userController = {
-  async getUser(req: Request, res: Response, next: NextFunction) {
+/**
+ * 用户管理控制器
+ * 处理用户信息获取和资料更新功能
+ */
+class UserController extends BaseController {
+
+  /**
+   * 获取用户信息（如果不存在则自动创建）
+   * @param req - 包含用户地址的请求
+   * @param res - 响应对象
+   * @param next - 下一个中间件函数
+   */
+  getUser = this.asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const { address } = req.params;
+
+    if (!address) {
+      return this.error(res, 400, '缺少用户地址');
+    }
+
     try {
-      const { address } = req.params;
-
-      if (!address) {
-        return res.status(400).json({
-          success: false,
-          error: '缺少用户地址'
-        });
-      }
-
       const user = await userService.getOrCreateUser(address);
-
-      res.json({
-        success: true,
-        data: user
-      });
-
+      this.success(res, user);
     } catch (error) {
       console.error('获取用户信息失败:', error);
-      next(error);
+      this.handleServiceError(error, res, next);
     }
-  },
+  });
 
-  async updateProfile(req: Request, res: Response, next: NextFunction) {
+  /**
+   * 更新用户资料
+   * @param req - 包含用户资料信息的请求
+   * @param res - 响应对象
+   * @param next - 下一个中间件函数
+   */
+  updateProfile = this.asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const { userAddress, nickname, bio, signature, timestamp, nonce } = req.body;
+
+    // 验证必需参数
+    if (!this.validateRequiredFields(req, res, ['userAddress', 'signature', 'timestamp'])) {
+      return;
+    }
+
+    // 验证时间戳
+    if (!this.validateTimestamp(res, timestamp)) {
+      return;
+    }
+
     try {
-      const { userAddress, nickname, bio, signature, timestamp, nonce } = req.body;
-
-      // 参数验证
-      if (!userAddress || !signature || !timestamp) {
-        return res.status(400).json({
-          success: false,
-          error: '缺少签名验证参数'
-        });
-      }
-
-      // 如果提供了nonce，进行nonce验证（增强安全性）
-      if (nonce) {
-        const nonceValid = nonceService.validateAndConsumeNonce(nonce, userAddress);
-        if (!nonceValid) {
-          return res.status(401).json({
-            success: false,
-            error: 'Nonce验证失败或已过期'
-          });
-        }
-      }
-
       await userService.updateProfile({
         userAddress,
         nickname,
@@ -59,28 +59,13 @@ export const userController = {
         nonce
       });
 
-      res.json({
-        success: true,
-        message: '用户资料更新成功'
-      });
-
+      this.success(res, undefined, '用户资料更新成功');
     } catch (error) {
-      if (error instanceof Error) {
-        if (error.message === '签名已过期') {
-          return res.status(400).json({
-            success: false,
-            error: error.message
-          });
-        }
-        if (error.message === '用户不存在') {
-          return res.status(404).json({
-            success: false,
-            error: error.message
-          });
-        }
-      }
       console.error('更新用户资料失败:', error);
-      next(error);
+      this.handleServiceError(error, res, next);
     }
-  }
-};
+  });
+}
+
+// 导出控制器实例
+export const userController = new UserController();

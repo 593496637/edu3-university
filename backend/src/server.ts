@@ -27,9 +27,12 @@ async function startServer() {
       console.log(`🏷️  环境模式: ${process.env.NODE_ENV || 'development'}`);
     });
 
-    // 优雅关闭
-    process.on('SIGTERM', () => {
-      console.log('🔄 收到SIGTERM信号，正在关闭服务器...');
+    /**
+     * 优雅关闭服务器处理函数
+     * @param signal - 接收到的系统信号
+     */
+    const gracefulShutdown = (signal: string) => {
+      console.log(`🔄 收到${signal}信号，正在关闭服务器...`);
       server.close((err) => {
         if (err) {
           console.error('❌ 关闭服务器失败:', err);
@@ -38,19 +41,11 @@ async function startServer() {
         console.log('✅ 服务器已关闭');
         process.exit(0);
       });
-    });
+    };
 
-    process.on('SIGINT', () => {
-      console.log('🔄 收到SIGINT信号，正在关闭服务器...');
-      server.close((err) => {
-        if (err) {
-          console.error('❌ 关闭服务器失败:', err);
-          process.exit(1);
-        }
-        console.log('✅ 服务器已关闭');
-        process.exit(0);
-      });
-    });
+    // 监听系统信号进行优雅关闭
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
   } catch (error) {
     console.error('❌ 服务器启动失败:', error);

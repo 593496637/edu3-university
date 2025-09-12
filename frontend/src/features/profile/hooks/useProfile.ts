@@ -3,18 +3,18 @@ import { ethers } from 'ethers';
 import { courseService } from '@services/courseService';
 import { useAuthStore } from '@store/authStore';
 import { CONTRACT_ADDRESSES } from '@config/constants';
-import type { Course } from '../../courses/types';
+import type { CourseData } from '@/types/contracts';
 
 import YDTokenABI from '@abis/YDToken.json';
 
 export const useProfile = () => {
   const [loading, setLoading] = useState(false);
-  const [purchasedCourses, setPurchasedCourses] = useState<Course[]>([]);
-  const [createdCourses, setCreatedCourses] = useState<Course[]>([]);
+  const [purchasedCourses, setPurchasedCourses] = useState<CourseData[]>([]);
+  const [createdCourses, setCreatedCourses] = useState<CourseData[]>([]);
   const [isOwner, setIsOwner] = useState(false);
 
-  const { account, isConnected, isCorrectNetwork, setBalance } = useAuthStore();
-  const isReady = isConnected && isCorrectNetwork && account;
+  const { account, isConnected, setBalance } = useAuthStore();
+  const isReady = isConnected && account;
 
   const getProvider = useCallback(() => {
     if (!window.ethereum) throw new Error('请安装 MetaMask');
@@ -47,26 +47,64 @@ export const useProfile = () => {
 
     try {
       setLoading(true);
-      const allCourses = await courseService.getCoursesFromAPI();
+      console.log('开始加载用户课程数据...');
       
-      const purchased: Course[] = [];
-      const created: Course[] = [];
+      // 首先尝试从API获取课程数据
+      let allCourses: CourseData[] = [];
+      try {
+        allCourses = await courseService.getCoursesFromAPI();
+        console.log('从API获取到课程数据:', allCourses.length);
+      } catch (apiError) {
+        console.warn('API获取课程失败，尝试从合约获取:', apiError);
+        allCourses = await courseService.getCoursesFromContract();
+        console.log('从合约获取到课程数据:', allCourses.length);
+      }
+      
+      const purchased: CourseData[] = [];
+      const created: CourseData[] = [];
 
-      for (const course of allCourses) {
-        if (course.instructor.toLowerCase() === account.toLowerCase()) {
-          created.push(course);
-        } else {
-          const hasPurchased = await courseService.hasPurchased(account, course.id);
-          if (hasPurchased) {
-            purchased.push(course);
+      // 并发处理课程检查以提高性能
+      const courseChecks = allCourses.map(async (course) => {
+        try {
+          // 检查是否为用户创建的课程
+          if (course.instructor && course.instructor.toLowerCase() === account.toLowerCase()) {
+            return { type: 'created', course };
+          } else if (course.id) {
+            // 检查是否已购买
+            const hasPurchased = await courseService.hasPurchased(account, course.id);
+            if (hasPurchased) {
+              return { type: 'purchased', course };
+            }
+          }
+          return null;
+        } catch (error) {
+          console.error(`检查课程 ${course.id} 失败:`, error);
+          return null;
+        }
+      });
+
+      const results = await Promise.all(courseChecks);
+      
+      results.forEach(result => {
+        if (result) {
+          if (result.type === 'created') {
+            created.push(result.course);
+          } else if (result.type === 'purchased') {
+            purchased.push(result.course);
           }
         }
-      }
+      });
+
+      console.log('用户已购买课程:', purchased.length);
+      console.log('用户已创建课程:', created.length);
 
       setPurchasedCourses(purchased);
       setCreatedCourses(created);
     } catch (error) {
       console.error('加载用户课程失败:', error);
+      // 设置空数组以显示无数据状态而不是加载状态
+      setPurchasedCourses([]);
+      setCreatedCourses([]);
     } finally {
       setLoading(false);
     }
@@ -115,12 +153,14 @@ export const useProfile = () => {
   }, [account, mintTokensToUser]);
 
   useEffect(() => {
-    if (isReady) {
+    console.log('useProfile useEffect triggered:', { account, isConnected, isReady });
+    if (account && isConnected) {
+      console.log('Loading data for account:', account);
       loadUserBalance();
       loadUserCourses();
       checkOwnerStatus();
     }
-  }, [isReady, loadUserBalance, loadUserCourses, checkOwnerStatus]);
+  }, [account, isConnected, loadUserBalance, loadUserCourses, checkOwnerStatus]);
 
   return {
     loading,

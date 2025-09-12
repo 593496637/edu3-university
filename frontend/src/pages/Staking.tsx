@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useStaking } from '../features/staking/hooks/useStaking';
+import { useProfile } from '../features/profile/hooks/useProfile';
 
 export default function Staking() {
   const { isConnected } = useAuthStore();
+  const { loadUserBalance } = useProfile();
   const {
     loading,
     stakeInfo,
@@ -19,6 +21,13 @@ export default function Staking() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const { balance } = useAuthStore();
+
+  // 组件加载时刷新钱包余额
+  useEffect(() => {
+    if (isConnected) {
+      loadUserBalance();
+    }
+  }, [isConnected, loadUserBalance]);
 
   const onStake = async () => {
     if (!stakeAmount || parseFloat(stakeAmount) <= 0) {
@@ -40,6 +49,8 @@ export default function Staking() {
       
       setMessage('质押成功！');
       setStakeAmount('');
+      // 刷新钱包余额
+      await loadUserBalance();
     } catch (error: unknown) {
       console.error('质押失败:', error);
       const errorMessage = error instanceof Error ? error.message : '未知错误';
@@ -64,6 +75,8 @@ export default function Staking() {
       await handleUnstake();
       
       setMessage('取消质押成功，本金和收益已返还！');
+      // 刷新钱包余额
+      await loadUserBalance();
     } catch (error: unknown) {
       console.error('取消质押失败:', error);
       const errorMessage = error instanceof Error ? error.message : '未知错误';

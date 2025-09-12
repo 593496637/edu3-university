@@ -43,13 +43,13 @@ export class CourseService {
       const response = await courseApi.getCourses(1, 50) as ApiResponse;
       if (response.success && response.data && response.data.courses) {
         return response.data.courses.map((course: ApiCourseData): CourseData => ({
-          id: parseInt(course.course_id),
-          instructor: course.instructor_address,
+          id: parseInt(course.courseId),
+          instructor: course.instructorAddress,
           title: course.title,
           description: course.description,
-          price: course.price_yd,
+          price: course.price,
           isActive: true,
-          createdAt: new Date(course.created_at).getTime() / 1000
+          createdAt: new Date(course.createdAt).getTime() / 1000
         }));
       }
       return [];
@@ -64,6 +64,13 @@ export class CourseService {
       const contract = await this.getContract(CONTRACT_ADDRESSES.CourseManager, CourseManagerABI.abi);
       const totalCourses = await contract.getTotalCourses();
       const courseCount = Number(totalCourses);
+      
+      console.log('合约中总课程数:', courseCount);
+      
+      if (courseCount === 0) {
+        console.log('合约中没有课程');
+        return [];
+      }
       
       const courses = [];
       for (let i = 1; i <= courseCount; i++) {
@@ -85,6 +92,7 @@ export class CourseService {
         }
       }
       
+      console.log('从合约获取到有效课程:', courses.length);
       return courses;
     } catch (error) {
       console.error('获取所有课程失败:', error);
@@ -170,8 +178,11 @@ export class CourseService {
 
   async hasPurchased(userAddress: string, courseId: number): Promise<boolean> {
     try {
+      console.log(`检查购买状态: 用户 ${userAddress} 课程 ${courseId}`);
       const contract = await this.getContract(CONTRACT_ADDRESSES.CourseManager, CourseManagerABI.abi);
-      return await contract.hasPurchased(userAddress, courseId);
+      const result = await contract.hasPurchased(userAddress, courseId);
+      console.log(`购买状态结果: ${result}`);
+      return result;
     } catch (error) {
       console.error('检查购买状态失败:', error);
       return false;

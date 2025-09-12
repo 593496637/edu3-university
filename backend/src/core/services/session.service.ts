@@ -2,13 +2,27 @@ import crypto from 'crypto';
 import { ethers } from 'ethers';
 import { sessionRepository } from '../repositories/session.repository';
 
+/**
+ * 会话管理服务类
+ * 处理用户会话创建、验证、删除以及课程访问令牌管理
+ */
 export class SessionService {
-  // 生成随机session token
+  
+  /**
+   * 生成随机session token
+   * @returns 64字节的十六进制字符串
+   */
   private generateSessionToken(): string {
     return crypto.randomBytes(64).toString('hex');
   }
 
-  // 创建用户会话
+  /**
+   * 创建用户会话
+   * @param userAddress - 用户钱包地址
+   * @param durationHours - 会话持续时间（小时），默认24小时
+   * @returns 会话token字符串
+   * @throws {Error} 创建会话失败时抛出错误
+   */
   async createSession(userAddress: string, durationHours: number = 24): Promise<string> {
     const sessionToken = this.generateSessionToken();
     const expiresAt = new Date(Date.now() + durationHours * 60 * 60 * 1000);
@@ -32,7 +46,11 @@ export class SessionService {
     }
   }
 
-  // 验证session token
+  /**
+   * 验证session token
+   * @param sessionToken - 要验证的会话token
+   * @returns 用户地址，如果会话无效则返回null
+   */
   async validateSession(sessionToken: string): Promise<string | null> {
     try {
       const session = await sessionRepository.findSessionByToken(sessionToken);
@@ -43,7 +61,10 @@ export class SessionService {
     }
   }
 
-  // 删除session
+  /**
+   * 删除用户会话
+   * @param sessionToken - 要删除的会话token
+   */
   async deleteSession(sessionToken: string): Promise<void> {
     try {
       await sessionRepository.deleteSession(sessionToken);
@@ -52,7 +73,15 @@ export class SessionService {
     }
   }
 
-  // 存储课程访问签名
+  /**
+   * 存储课程访问令牌
+   * @param userAddress - 用户钱包地址
+   * @param courseId - 课程ID
+   * @param signature - 用户签名
+   * @param signedMessage - 签名的消息内容
+   * @param durationHours - 令牌有效期（小时），默认2小时
+   * @throws {Error} 存储失败时抛出错误
+   */
   async storeCourseAccessToken(
     userAddress: string,
     courseId: number,
@@ -78,7 +107,15 @@ export class SessionService {
     }
   }
 
-  // 验证课程访问签名
+  /**
+   * 验证课程访问权限
+   * 首先检查缓存的令牌，如果无效则验证新的签名
+   * @param userAddress - 用户钱包地址
+   * @param courseId - 课程ID
+   * @param signature - 用户提供的签名
+   * @param timestamp - 签名时间戳
+   * @returns 验证结果，true表示有权限访问
+   */
   async validateCourseAccess(
     userAddress: string,
     courseId: number,
@@ -131,7 +168,10 @@ export class SessionService {
     }
   }
 
-  // 清理过期的token
+  /**
+   * 清理过期的token和访问令牌
+   * 定期清理过期的用户会话和课程访问令牌，释放数据库空间
+   */
   async cleanupExpiredTokens(): Promise<void> {
     try {
       // 清理过期的session

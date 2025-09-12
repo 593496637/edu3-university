@@ -1,16 +1,15 @@
-import { useState } from 'react';
-import { ethers } from 'ethers';
-import { useAuthStore } from '../store/authStore';
-import { useProfile } from '../features/profile/hooks/useProfile';
-import { userApi } from '../services/api';
-import { nonceService } from '../services/nonceService';
+import { useState, useEffect, useCallback } from "react";
+import { ethers } from "ethers";
+import { useAuthStore } from "../store/authStore";
+import { useProfile } from "../features/profile/hooks/useProfile";
+import { userApi } from "../services/api";
+import { nonceService } from "../services/nonceService";
 
 interface UserProfile {
   nickname: string;
   bio: string;
   wallet_address: string;
 }
-
 
 export default function Profile() {
   const { account, isConnected, balance } = useAuthStore();
@@ -20,23 +19,40 @@ export default function Profile() {
     createdCourses,
     isOwner,
     loadUserBalance,
-    mintTokensToSelf
+    loadUserCourses,
+    mintTokensToSelf,
   } = useProfile();
 
   const [profile, setProfile] = useState<UserProfile>({
-    nickname: '',
-    bio: '',
-    wallet_address: account || '',
+    nickname: "",
+    bio: "",
+    wallet_address: account || "",
   });
   const [updating, setUpdating] = useState(false);
-  const [mintAmount, setMintAmount] = useState('');
+  const [mintAmount, setMintAmount] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
+
+  // 手动刷新所有数据
+  const handleRefreshData = async () => {
+    if (account && isConnected) {
+      try {
+        await Promise.all([
+          loadUserProfile(),
+          loadUserBalance(),
+          loadUserCourses(),
+        ]);
+        console.log("数据刷新完成");
+      } catch (error) {
+        console.error("刷新数据失败:", error);
+      }
+    }
+  };
 
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const loadUserProfile = async () => {
+  const loadUserProfile = useCallback(async () => {
     if (!account) return;
 
     setProfileLoading(true);
@@ -46,26 +62,33 @@ export default function Profile() {
       if (userResponse.success) {
         const userData = userResponse.data as UserProfile;
         setProfile({
-          nickname: userData.nickname || '',
-          bio: userData.bio || '',
+          nickname: userData.nickname || "",
+          bio: userData.bio || "",
           wallet_address: userData.wallet_address || account,
         });
       } else {
         setProfile({
-          nickname: '',
-          bio: '',
+          nickname: "",
+          bio: "",
           wallet_address: account,
         });
       }
     } catch (error) {
-      console.error('加载用户数据失败:', error);
+      console.error("加载用户数据失败:", error);
     }
     setProfileLoading(false);
-  };
+  }, [account]);
+
+  // 组件挂载时加载用户资料
+  useEffect(() => {
+    if (account && isConnected) {
+      loadUserProfile();
+    }
+  }, [account, isConnected, loadUserProfile]);
 
   const updateProfile = async () => {
     if (!account || !window.ethereum) {
-      alert('请先连接钱包');
+      alert("请先连接钱包");
       return;
     }
 
@@ -75,11 +98,11 @@ export default function Profile() {
       try {
         nonce = await nonceService.getNonce(account);
       } catch (error) {
-        console.warn('获取nonce失败，将使用传统时间戳方式:', error);
+        console.warn("获取nonce失败，将使用传统时间戳方式:", error);
       }
 
       const timestamp = Date.now();
-      const message = nonce 
+      const message = nonce
         ? `Update profile with nonce ${nonce}: ${profile.nickname} - ${profile.bio} at ${timestamp}`
         : `Update profile: ${profile.nickname} - ${profile.bio} at ${timestamp}`;
 
@@ -101,33 +124,35 @@ export default function Profile() {
       }
 
       if (response.success) {
-        alert('资料更新成功！');
+        alert("资料更新成功！");
         await loadUserProfile();
       } else {
-        alert('更新失败: ' + (response.error || '未知错误'));
+        alert("更新失败: " + (response.error || "未知错误"));
       }
     } catch (error) {
-      console.error('更新资料失败:', error);
-      alert('更新失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      console.error("更新资料失败:", error);
+      alert(
+        "更新失败: " + (error instanceof Error ? error.message : "未知错误")
+      );
     }
     setUpdating(false);
   };
 
   const handleMintTokens = async () => {
     if (!mintAmount || parseFloat(mintAmount) <= 0) {
-      alert('请输入有效的数量');
+      alert("请输入有效的数量");
       return;
     }
 
     try {
       await mintTokensToSelf(mintAmount);
-      alert('代币发放成功！');
-      setMintAmount('');
+      alert("代币发放成功！");
+      setMintAmount("");
       await loadUserBalance();
     } catch (error: unknown) {
-      console.error('发放代币失败:', error);
-      const errorMessage = error instanceof Error ? error.message : '未知错误';
-      alert('发放失败: ' + errorMessage);
+      console.error("发放代币失败:", error);
+      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      alert("发放失败: " + errorMessage);
     }
   };
 
@@ -151,7 +176,7 @@ export default function Profile() {
               请先连接您的MetaMask钱包以查看个人信息和资产。
             </p>
             <button
-              onClick={() => (window.location.href = '/courses')}
+              onClick={() => (window.location.href = "/courses")}
               className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl hover:from-purple-500 hover:to-pink-500 transition-all duration-300"
             >
               返回课程页面
@@ -166,9 +191,31 @@ export default function Profile() {
     <div className="min-h-screen">
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-            个人中心
-          </h1>
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              个人中心
+            </h1>
+            <button
+              onClick={handleRefreshData}
+              disabled={loading}
+              className="bg-gray-700/50 hover:bg-gray-600/50 text-gray-300 hover:text-white p-2 rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="刷新数据"
+            >
+              <svg
+                className={`w-5 h-5 ${loading ? "animate-spin" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+            </button>
+          </div>
           <p className="text-gray-300 text-xl">管理您的账户信息和学习进度</p>
         </div>
 
@@ -230,7 +277,7 @@ export default function Profile() {
                 disabled={updating || profileLoading}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 px-6 rounded-xl hover:from-purple-500 hover:to-pink-500 transition-all duration-300 shadow-lg hover:shadow-purple-500/25 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {updating ? '更新中...' : '更新资料'}
+                {updating ? "更新中..." : "更新资料"}
               </button>
             </div>
           </div>
@@ -252,7 +299,9 @@ export default function Profile() {
 
               {isOwner && (
                 <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
-                  <h3 className="text-green-300 font-semibold mb-3">Owner功能</h3>
+                  <h3 className="text-green-300 font-semibold mb-3">
+                    Owner功能
+                  </h3>
                   <div className="flex gap-2">
                     <input
                       type="number"
@@ -277,20 +326,39 @@ export default function Profile() {
               <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
                 <span className="w-2 h-2 bg-pink-400 rounded-full mr-3"></span>
                 学习统计
+                {loading && (
+                  <span className="ml-2 text-xs text-gray-400">
+                    (加载中...)
+                  </span>
+                )}
               </h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg">
                   <span className="text-gray-300 text-sm">已购买课程</span>
                   <span className="text-pink-400 font-semibold">
-                    {purchasedCourses.length} 门
+                    {loading ? "..." : `${purchasedCourses.length} 门`}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg">
                   <span className="text-gray-300 text-sm">已创建课程</span>
                   <span className="text-cyan-400 font-semibold">
-                    {createdCourses.length} 门
+                    {loading ? "..." : `${createdCourses.length} 门`}
                   </span>
                 </div>
+                {!loading &&
+                  purchasedCourses.length === 0 &&
+                  createdCourses.length === 0 && (
+                    <div className="text-center p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                      <p className="text-yellow-300 text-sm mb-2">
+                        暂无课程数据，请点击右上角刷新按钮重新加载
+                      </p>
+                      <div className="text-xs text-gray-400 space-y-1">
+                        <div>账户: {account || "未连接"}</div>
+                        <div>连接状态: {isConnected ? "已连接" : "未连接"}</div>
+                        <div>账户余额: {balance} YD</div>
+                      </div>
+                    </div>
+                  )}
               </div>
             </div>
           </div>
@@ -317,9 +385,16 @@ export default function Profile() {
             ) : (
               <div className="space-y-3">
                 {purchasedCourses.slice(0, 3).map((course, index) => (
-                  <div key={course.id || index} className="p-3 bg-gray-700/30 rounded-lg">
-                    <h3 className="text-white font-medium text-sm">{course.title}</h3>
-                    <p className="text-gray-400 text-xs mt-1">{course.price} YD</p>
+                  <div
+                    key={course.id || index}
+                    className="p-3 bg-gray-700/30 rounded-lg"
+                  >
+                    <h3 className="text-white font-medium text-sm">
+                      {course.title}
+                    </h3>
+                    <p className="text-gray-400 text-xs mt-1">
+                      {course.price} YD
+                    </p>
                   </div>
                 ))}
                 {purchasedCourses.length > 3 && (
@@ -350,9 +425,16 @@ export default function Profile() {
             ) : (
               <div className="space-y-3">
                 {createdCourses.slice(0, 3).map((course, index) => (
-                  <div key={course.id || index} className="p-3 bg-gray-700/30 rounded-lg">
-                    <h3 className="text-white font-medium text-sm">{course.title}</h3>
-                    <p className="text-gray-400 text-xs mt-1">{course.price} YD</p>
+                  <div
+                    key={course.id || index}
+                    className="p-3 bg-gray-700/30 rounded-lg"
+                  >
+                    <h3 className="text-white font-medium text-sm">
+                      {course.title}
+                    </h3>
+                    <p className="text-gray-400 text-xs mt-1">
+                      {course.price} YD
+                    </p>
                   </div>
                 ))}
                 {createdCourses.length > 3 && (

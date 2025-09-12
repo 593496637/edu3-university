@@ -13,12 +13,12 @@ export interface CourseData {
 
 // API response types
 export interface ApiCourseData {
-  course_id: string;
-  instructor_address: string;
+  courseId: string;
+  instructorAddress: string;
   title: string;
   description: string;
-  price_yd: string;
-  created_at: string;
+  price: string;
+  createdAt: string;
 }
 
 export interface ApiResponse {

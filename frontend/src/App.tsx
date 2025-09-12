@@ -5,6 +5,7 @@ import Layout from "./components/Layout";
 import Courses from "./pages/Courses";
 import Staking from "./pages/Staking";
 import Profile from "./pages/Profile";
+import Debug from "./pages/Debug";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
               <Route path="/courses" element={<Courses />} />
               <Route path="/staking" element={<Staking />} />
               <Route path="/profile" element={<ErrorBoundary><Profile /></ErrorBoundary>} />
+              <Route path="/debug" element={<Debug />} />
             </Routes>
           </Layout>
         </BrowserRouter>

@@ -1,30 +1,33 @@
 import { Request, Response, NextFunction } from 'express';
 import { authService } from '../../core/services/auth.service';
-import { nonceService } from '../../core/services/nonce.service';
+import { BaseController } from './BaseController';
 
-export const authController = {
-  async login(req: Request, res: Response, next: NextFunction) {
+/**
+ * 用户认证控制器
+ * 处理用户登录、会话验证和登出功能
+ */
+class AuthController extends BaseController {
+  
+  /**
+   * 用户登录
+   * @param req - 包含登录信息的请求
+   * @param res - 响应对象
+   * @param next - 下一个中间件函数
+   */
+  login = this.asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const { walletAddress, signature, message, timestamp, nonce } = req.body;
+
+    // 验证必需参数
+    if (!this.validateRequiredFields(req, res, ['walletAddress', 'signature', 'message', 'timestamp'])) {
+      return;
+    }
+
+    // 验证时间戳
+    if (!this.validateTimestamp(res, timestamp)) {
+      return;
+    }
+
     try {
-      const { walletAddress, signature, message, timestamp, nonce } = req.body;
-
-      if (!walletAddress || !signature || !message || !timestamp) {
-        return res.status(400).json({
-          success: false,
-          error: '缺少必要参数'
-        });
-      }
-
-      // 如果提供了nonce，进行nonce验证（增强安全性）
-      if (nonce) {
-        const nonceValid = nonceService.validateAndConsumeNonce(nonce, walletAddress);
-        if (!nonceValid) {
-          return res.status(401).json({
-            success: false,
-            error: 'Nonce验证失败或已过期'
-          });
-        }
-      }
-
       const result = await authService.login({
         walletAddress,
         signature,
@@ -33,77 +36,59 @@ export const authController = {
         nonce
       });
 
-      res.json({
-        success: true,
-        data: result,
-        message: '登录成功'
-      });
-
+      this.success(res, result, '登录成功');
     } catch (error) {
-      if (error instanceof Error) {
-        if (error.message === '登录请求已过期') {
-          return res.status(400).json({
-            success: false,
-            error: error.message
-          });
-        }
-        if (error.message === '签名验证失败' || error.message === '签名格式无效') {
-          return res.status(401).json({
-            success: false,
-            error: error.message
-          });
-        }
-      }
       console.error('登录失败:', error);
-      next(error);
+      this.handleServiceError(error, res, next);
     }
-  },
+  });
 
-  async verifySession(req: Request, res: Response, next: NextFunction) {
+  /**
+   * 验证用户会话
+   * @param req - 包含sessionToken的请求
+   * @param res - 响应对象
+   * @param next - 下一个中间件函数
+   */
+  verifySession = this.asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const { sessionToken } = req.body;
+
+    // 验证必需参数
+    if (!this.validateRequiredFields(req, res, ['sessionToken'])) {
+      return;
+    }
+
     try {
-      const { sessionToken } = req.body;
-
-      if (!sessionToken) {
-        return res.status(400).json({
-          success: false,
-          error: '缺少session token'
-        });
-      }
-
       const result = await authService.verifySession(sessionToken);
 
       if (!result.isValid) {
-        return res.status(401).json({
-          success: false,
-          error: '会话已过期或无效'
-        });
+        return this.error(res, 401, '会话已过期或无效');
       }
 
-      res.json({
-        success: true,
-        data: result
-      });
-
+      this.success(res, result);
     } catch (error) {
       console.error('验证会话失败:', error);
-      next(error);
+      this.handleServiceError(error, res, next);
     }
-  },
+  });
 
-  async logout(req: Request, res: Response, next: NextFunction) {
+  /**
+   * 用户登出
+   * @param req - 可选包含sessionToken的请求
+   * @param res - 响应对象
+   * @param next - 下一个中间件函数
+   */
+  logout = this.asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const { sessionToken } = req.body;
+
     try {
-      const { sessionToken } = req.body;
-
       await authService.logout(sessionToken);
-
-      res.json({
-        success: true,
-        message: '登出成功'
-      });
-
+      this.success(res, undefined, '登出成功');
     } catch (error) {
       console.error('登出失败:', error);
-      next(error);
+      this.handleServiceError(error, res, next);
     }
-  }
-};
+  });
+}
+
+// 导出控制器实例
+export const authController = new AuthController();
