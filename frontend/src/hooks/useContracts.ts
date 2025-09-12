@@ -1,11 +1,11 @@
 import { useCallback } from 'react';
 import { ethers } from 'ethers';
-import { useAuthStore } from '../store/authStore';
-import { CONTRACT_ADDRESSES } from '../config/constants';
+import { useAuthStore } from '@store/authStore';
+import { CONTRACT_ADDRESSES } from '@config/constants';
 
-import YDTokenABI from '../../abis/YDToken.json';
-import CourseManagerABI from '../../abis/CourseManager.json';
-import SimpleStakingABI from '../../abis/SimpleStaking.json';
+import YDTokenABI from '@abis/YDToken.json';
+import CourseManagerABI from '@abis/CourseManager.json';
+import SimpleStakingABI from '@abis/SimpleStaking.json';
 
 export function useContracts() {
   const { account, isConnected, isCorrectNetwork } = useAuthStore();

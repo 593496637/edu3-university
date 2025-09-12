@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { ToastType, ToastProps } from '../../types/ui';
+import type { ToastType, ToastProps } from '@/types/ui';
 
 export type { ToastType };
 

@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
-import { courseService } from '../../../services/courseService';
-import { authService } from '../../../services/authService';
-import { useAuthStore } from '../../../store/authStore';
+import { courseService } from '@services/courseService';
+import { authService } from '@services/authService';
+import { useAuthStore } from '@store/authStore';
 import type { Course } from '../types';
-import { API_BASE_URL } from '../../../config/constants';
+import { API_BASE_URL } from '@config/constants';
 
 export const useCourseList = () => {
   const [courses, setCourses] = useState<Course[]>([]);

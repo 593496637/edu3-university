@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import { ethers } from 'ethers';
-import { useAuthStore } from '../../../store/authStore';
-import { CONTRACT_ADDRESSES } from '../../../config/constants';
-import type { StakeInfo } from '../../../types/contracts';
+import { useAuthStore } from '@store/authStore';
+import { CONTRACT_ADDRESSES } from '@config/constants';
+import type { StakeInfo } from '@/types/contracts';
 
-import YDTokenABI from '../../../../abis/YDToken.json';
-import SimpleStakingABI from '../../../../abis/SimpleStaking.json';
+import YDTokenABI from '@abis/YDToken.json';
+import SimpleStakingABI from '@abis/SimpleStaking.json';
 
 export const useStaking = () => {
   const [loading, setLoading] = useState(false);

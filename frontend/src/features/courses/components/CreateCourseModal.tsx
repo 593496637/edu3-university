@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useAuthStore } from '../../../store/authStore';
-import { courseService } from '../../../services/courseService';
-import Modal from '../../../components/ui/Modal';
-import Button from '../../../components/ui/Button';
+import { useAuthStore } from '@store/authStore';
+import { courseService } from '@services/courseService';
+import Modal from '@components/ui/Modal';
+import Button from '@components/ui/Button';
 
 interface CreateCourseModalProps {
   isOpen: boolean;

@@ -1,4 +1,4 @@
-import type { ModalProps } from '../../types/ui';
+import type { ModalProps } from '@/types/ui';
 
 export default function Modal({ 
   isOpen, 

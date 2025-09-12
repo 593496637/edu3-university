@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import { ethers } from 'ethers';
-import { courseService } from '../../../services/courseService';
-import { useAuthStore } from '../../../store/authStore';
-import { CONTRACT_ADDRESSES } from '../../../config/constants';
+import { courseService } from '@services/courseService';
+import { useAuthStore } from '@store/authStore';
+import { CONTRACT_ADDRESSES } from '@config/constants';
 import type { Course } from '../../courses/types';
 
-import YDTokenABI from '../../../../abis/YDToken.json';
+import YDTokenABI from '@abis/YDToken.json';
 
 export const useProfile = () => {
   const [loading, setLoading] = useState(false);

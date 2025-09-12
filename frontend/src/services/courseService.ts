@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { CONTRACT_ADDRESSES } from '../config/constants';
+import { CONTRACT_ADDRESSES } from '@config/constants';
 import { courseApi, purchaseApi } from './api';
 import type {
   CourseData,
@@ -8,10 +8,10 @@ import type {
   CreateCourseResult,
   RecordPurchaseRequest,
   ContractInterface,
-} from '../types/contracts';
+} from '@/types/contracts';
 
-import YDTokenABI from '../../abis/YDToken.json';
-import CourseManagerABI from '../../abis/CourseManager.json';
+import YDTokenABI from '@abis/YDToken.json';
+import CourseManagerABI from '@abis/CourseManager.json';
 
 export class CourseService {
   private provider: ethers.BrowserProvider | null = null;

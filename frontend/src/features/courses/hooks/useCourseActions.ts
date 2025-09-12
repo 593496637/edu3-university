@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { courseService } from '../../../services/courseService';
-import { authService } from '../../../services/authService';
-import { useAuthStore } from '../../../store/authStore';
-import { CONTRACT_ADDRESSES } from '../../../config/constants';
+import { courseService } from '@services/courseService';
+import { authService } from '@services/authService';
+import { useAuthStore } from '@store/authStore';
+import { CONTRACT_ADDRESSES } from '@config/constants';
 import type { Course } from '../types';
 
 export const useCourseActions = () => {
