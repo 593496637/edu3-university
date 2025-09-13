@@ -1,45 +1,112 @@
-import { useState, useEffect, useCallback } from "react";
-import { ethers } from "ethers";
-import { useAuthStore } from "../store/authStore";
-import { useProfile } from "../features/profile/hooks/useProfile";
-import { userApi } from "../services/api";
-import { nonceService } from "../services/nonceService";
+/**
+ * 用户个人中心页面 - 综合性的用户管理和数据展示页面
+ * 
+ * 核心功能：
+ * 1. 用户资料管理 - 支持昵称和个人简介的编辑更新
+ * 2. 数字资产展示 - 显示YDToken余额和实时更新
+ * 3. 学习数据统计 - 展示已购买和已创建的课程数量
+ * 4. 合约所有者权限 - 为合约owner提供代币铸造功能
+ * 5. Web3签名认证 - 使用钱包签名验证用户身份
+ * 6. 数据安全保护 - 采用nonce机制防止重放攻击
+ * 
+ * 技术实现：
+ * - 集成Web3钱包签名进行用户身份验证
+ * - 使用ethers.js进行消息签名和验证
+ * - 实现防重放攻击的nonce机制
+ * - 响应式布局适配多设备访问
+ * - 实时数据加载和状态同步
+ * 
+ * 安全特性：
+ * - 消息签名包含时间戳和随机nonce
+ * - 服务端验证签名的合法性和有效期
+ * - 敏感操作需要重新签名确认
+ * 
+ * 数据流：
+ * 钱包连接 → 加载用户资料 → 显示资产统计 → 支持编辑更新 → 签名验证 → 同步到后端
+ */
 
+// React核心hooks
+import { useState, useEffect, useCallback } from "react";
+// Web3库，用于钱包交互和消息签名
+import { ethers } from "ethers";
+// 全局状态管理
+import { useAuthStore } from "../store/authStore";
+// 用户资料相关的自定义hook
+import { useProfile } from "../features/profile/hooks/useProfile";
+// API服务层
+import { userApi } from "../services/api";              // 用户资料API
+import { nonceService } from "../services/nonceService"; // 防重放攻击服务
+
+/**
+ * 用户资料数据结构定义
+ * 
+ * 这个接口定义了用户可以编辑的基本资料字段
+ * 与后端API的用户表结构保持一致
+ */
 interface UserProfile {
-  nickname: string;
-  bio: string;
-  wallet_address: string;
+  nickname: string;        // 用户昵称，用于显示友好的用户标识
+  bio: string;            // 个人简介，用户可以描述自己的背景和兴趣
+  wallet_address: string; // 钱包地址，作为用户的唯一标识符
 }
 
 export default function Profile() {
+  // === 全局状态获取 ===
+  // 从认证状态管理中获取钱包连接信息和代币余额
   const { account, isConnected, balance } = useAuthStore();
+  
+  // === 用户数据管理 ===
+  // 从useProfile hook中获取用户相关数据和操作函数
   const {
-    loading,
-    purchasedCourses,
-    createdCourses,
-    isOwner,
-    loadUserBalance,
-    loadUserCourses,
-    mintTokensToSelf,
+    loading,              // 数据加载状态
+    purchasedCourses,    // 用户购买的课程列表
+    createdCourses,      // 用户创建的课程列表
+    isOwner,             // 是否为合约所有者（可以铸造代币）
+    loadUserBalance,     // 刷新用户代币余额
+    loadUserCourses,     // 刷新用户课程数据
+    mintTokensToSelf,    // 为自己铸造代币（仅owner）
   } = useProfile();
 
+  // === 本地状态管理 ===
+  // 用户资料表单数据，初始化时使用当前钱包地址
   const [profile, setProfile] = useState<UserProfile>({
-    nickname: "",
-    bio: "",
-    wallet_address: account || "",
+    nickname: "",                    // 昵称初始为空
+    bio: "",                        // 简介初始为空
+    wallet_address: account || "",  // 钱包地址使用当前连接的账户
   });
+  
+  // 资料更新操作的加载状态
   const [updating, setUpdating] = useState(false);
+  
+  // 代币铸造数量输入值（仅owner可见）
   const [mintAmount, setMintAmount] = useState("");
+  
+  // 用户资料加载状态（区别于课程数据加载）
   const [profileLoading, setProfileLoading] = useState(false);
 
-  // 手动刷新所有数据
+  /**
+   * 手动刷新所有用户数据
+   * 
+   * 这个函数会并发执行多个数据加载操作，提高页面响应速度：
+   * 1. 重新加载用户资料（从后端API）
+   * 2. 重新加载代币余额（从区块链）
+   * 3. 重新加载课程数据（从后端API和区块链）
+   * 
+   * 使用场景：
+   * - 用户点击刷新按钮
+   * - 数据可能过期时的主动更新
+   * - 执行操作后确保数据同步
+   * 
+   * @async
+   */
   const handleRefreshData = async () => {
+    // 只有在钱包已连接且有账户地址时才执行刷新
     if (account && isConnected) {
       try {
+        // 使用Promise.all并发执行多个异步操作，提高性能
         await Promise.all([
-          loadUserProfile(),
-          loadUserBalance(),
-          loadUserCourses(),
+          loadUserProfile(),    // 加载用户基本资料
+          loadUserBalance(),    // 加载代币余额
+          loadUserCourses(),    // 加载课程数据
         ]);
         console.log("数据刷新完成");
       } catch (error) {
@@ -48,45 +115,110 @@ export default function Profile() {
     }
   };
 
+  /**
+   * 格式化钱包地址显示
+   * 
+   * 将完整的以太坊地址（42个字符）缩短为易读格式
+   * 例如：0x742d35Cc6635C0532925a3b8D7389...8f4E → 0x742d...8f4E
+   * 
+   * @param address 完整的以太坊地址
+   * @returns 格式化后的短地址
+   */
   const formatAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
+  /**
+   * 从后端API加载用户资料数据
+   * 
+   * 这个函数负责：
+   * 1. 根据当前钱包地址查询用户资料
+   * 2. 处理新用户（数据库中不存在）的情况
+   * 3. 更新本地表单状态以供用户编辑
+   * 4. 处理API调用失败的容错逻辑
+   * 
+   * 数据来源：后端数据库中的用户表
+   * 容错机制：如果用户不存在或API失败，使用默认空值
+   * 
+   * @async
+   */
   const loadUserProfile = useCallback(async () => {
+    // 没有钱包地址时直接返回
     if (!account) return;
 
     setProfileLoading(true);
     try {
+      // 调用后端API获取用户资料
       const userResponse = await userApi.getUser(account);
 
       if (userResponse.success) {
+        // API调用成功，使用返回的用户数据
         const userData = userResponse.data as UserProfile;
         setProfile({
-          nickname: userData.nickname || "",
-          bio: userData.bio || "",
-          wallet_address: userData.wallet_address || account,
+          nickname: userData.nickname || "",                    // 昵称可能为空
+          bio: userData.bio || "",                            // 简介可能为空
+          wallet_address: userData.wallet_address || account,  // 确保地址不为空
         });
       } else {
+        // API调用失败或用户不存在，使用默认值
         setProfile({
           nickname: "",
           bio: "",
-          wallet_address: account,
+          wallet_address: account,  // 至少保证钱包地址正确
         });
       }
     } catch (error) {
+      // 网络错误或其他异常，记录错误但不中断用户体验
       console.error("加载用户数据失败:", error);
     }
     setProfileLoading(false);
-  }, [account]);
+  }, [account]); // 依赖钱包地址，地址变化时重新加载
 
-  // 组件挂载时加载用户资料
+  /**
+   * 组件挂载和钱包连接状态变化时加载用户资料
+   * 
+   * 触发条件：
+   * 1. 组件首次挂载
+   * 2. 用户切换钱包账户
+   * 3. 钱包连接状态变化
+   * 
+   * 这确保了用户看到的始终是当前钱包对应的资料数据
+   */
   useEffect(() => {
     if (account && isConnected) {
       loadUserProfile();
     }
   }, [account, isConnected, loadUserProfile]);
 
+  /**
+   * 更新用户资料到后端数据库
+   * 
+   * 这是一个安全的Web3用户认证更新流程：
+   * 
+   * 安全机制：
+   * 1. 获取防重放攻击的nonce（如果服务可用）
+   * 2. 构造包含时间戳和用户数据的消息
+   * 3. 使用用户的私钥对消息进行数字签名
+   * 4. 后端验证签名的有效性和消息的完整性
+   * 5. 验证通过后更新数据库并消费nonce
+   * 
+   * 更新流程：
+   * 1. 检查钱包连接状态
+   * 2. 尝试获取nonce（增强安全性）
+   * 3. 构造待签名消息
+   * 4. 请求用户签名确认
+   * 5. 发送签名数据到后端验证
+   * 6. 处理更新结果和用户反馈
+   * 
+   * 容错处理：
+   * - nonce服务不可用时降级到时间戳模式
+   * - 签名被拒绝时给出友好提示
+   * - 网络错误时保持用户输入数据
+   * 
+   * @async
+   */
   const updateProfile = async () => {
+    // 前置检查：确保钱包已连接
     if (!account || !window.ethereum) {
       alert("请先连接钱包");
       return;
@@ -94,22 +226,30 @@ export default function Profile() {
 
     setUpdating(true);
     try {
+      // === 第一步：获取安全nonce ===
       let nonce: string | undefined;
       try {
+        // 尝试从nonce服务获取一次性随机数，防止重放攻击
         nonce = await nonceService.getNonce(account);
       } catch (error) {
+        // nonce服务不可用时，降级到传统时间戳模式
         console.warn("获取nonce失败，将使用传统时间戳方式:", error);
       }
 
+      // === 第二步：构造签名消息 ===
       const timestamp = Date.now();
+      // 根据是否有nonce构造不同格式的消息
       const message = nonce
         ? `Update profile with nonce ${nonce}: ${profile.nickname} - ${profile.bio} at ${timestamp}`
         : `Update profile: ${profile.nickname} - ${profile.bio} at ${timestamp}`;
 
+      // === 第三步：用户数字签名 ===
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
+      // 请求用户对消息进行签名（会弹出MetaMask签名确认窗口）
       const signature = await signer.signMessage(message);
 
+      // === 第四步：发送到后端验证 ===
       const response = await userApi.updateProfile(
         account,
         profile.nickname,
@@ -119,17 +259,22 @@ export default function Profile() {
         nonce
       );
 
+      // === 第五步：处理nonce消费 ===
       if (nonce && response.success) {
+        // 更新成功后标记nonce已使用，防止重复使用
         nonceService.consumeNonce(account);
       }
 
+      // === 第六步：处理更新结果 ===
       if (response.success) {
         alert("资料更新成功！");
+        // 重新加载资料确保数据同步
         await loadUserProfile();
       } else {
         alert("更新失败: " + (response.error || "未知错误"));
       }
     } catch (error) {
+      // 处理各种可能的错误：网络错误、签名拒绝、API错误等
       console.error("更新资料失败:", error);
       alert(
         "更新失败: " + (error instanceof Error ? error.message : "未知错误")
@@ -138,18 +283,47 @@ export default function Profile() {
     setUpdating(false);
   };
 
+  /**
+   * 处理代币铸造操作（仅合约所有者可用）
+   * 
+   * 这是一个强大的管理功能，允许合约所有者：
+   * 1. 为自己或平台铸造新的YDToken
+   * 2. 用于平台运营、奖励发放等场景
+   * 3. 铸造后立即更新余额显示
+   * 
+   * 安全检查：
+   * - 前端检查用户是否为合约owner
+   * - 智能合约层面也会验证调用者权限
+   * - 输入验证确保数量为正数
+   * 
+   * 流程说明：
+   * 1. 验证输入的代币数量
+   * 2. 调用智能合约的mint函数
+   * 3. 等待区块链交易确认
+   * 4. 更新用户余额显示
+   * 5. 清空输入框准备下次操作
+   * 
+   * @async
+   */
   const handleMintTokens = async () => {
+    // 输入验证：确保用户输入了有效的正数
     if (!mintAmount || parseFloat(mintAmount) <= 0) {
       alert("请输入有效的数量");
       return;
     }
 
     try {
+      // 调用合约的mint函数铸造代币
       await mintTokensToSelf(mintAmount);
       alert("代币发放成功！");
+      
+      // 操作成功后清空输入框
       setMintAmount("");
+      
+      // 立即刷新余额显示，让用户看到最新数据
       await loadUserBalance();
     } catch (error: unknown) {
+      // 处理各种可能的错误：权限不足、交易失败、网络错误等
       console.error("发放代币失败:", error);
       const errorMessage = error instanceof Error ? error.message : "未知错误";
       alert("发放失败: " + errorMessage);

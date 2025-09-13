@@ -1,3 +1,15 @@
+/**
+ * 用户个人资料管理 Hook
+ * 
+ * 功能概述：
+ * - 获取用户购买和创建的课程列表
+ * - 查询用户YDToken余额和合约owner权限
+ * - 集成课程服务API和智能合约交互
+ * - 提供加载状态管理和错误处理
+ * 
+ * 数据流：认证状态 → 合约查询 → 课程数据 → UI展示
+ */
+
 import { useState, useCallback, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { courseService } from '@services/courseService';
@@ -160,7 +172,7 @@ export const useProfile = () => {
       loadUserCourses();
       checkOwnerStatus();
     }
-  }, [account, isConnected, loadUserBalance, loadUserCourses, checkOwnerStatus]);
+  }, [account, isConnected, isReady, loadUserBalance, loadUserCourses, checkOwnerStatus]);
 
   return {
     loading,
